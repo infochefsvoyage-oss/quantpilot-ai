@@ -1,0 +1,55 @@
+{
+  "name": "GovernanceAction",
+  "type": "object",
+  "properties": {
+    "action_type": {
+      "type": "string",
+      "enum": [
+        "LIVE_TRADE",
+        "PAPER_TO_LIVE",
+        "RISK_INCREASE",
+        "LEVERAGE_INCREASE",
+        "EXCHANGE_KEY_ACTIVATION",
+        "DISABLE_STOP_LOSS",
+        "MAX_POSITIONS_INCREASE",
+        "STRATEGY_SWITCH",
+        "EMERGENCY_OVERRIDE"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "expired",
+        "executed"
+      ],
+      "default": "pending"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "requested_by": {
+      "type": "string"
+    },
+    "approved_by": {
+      "type": "string"
+    },
+    "parameters": {
+      "type": "object"
+    },
+    "prepared_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "decided_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "action_type",
+    "reason"
+  ]
+}

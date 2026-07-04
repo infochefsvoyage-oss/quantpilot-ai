@@ -1,0 +1,60 @@
+{
+  "name": "JournalEntry",
+  "type": "object",
+  "properties": {
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "trades_count": {
+      "type": "number",
+      "default": 0
+    },
+    "wins": {
+      "type": "number",
+      "default": 0
+    },
+    "losses": {
+      "type": "number",
+      "default": 0
+    },
+    "win_rate": {
+      "type": "number",
+      "default": 0
+    },
+    "realized_pnl": {
+      "type": "number",
+      "default": 0
+    },
+    "unrealized_pnl": {
+      "type": "number",
+      "default": 0
+    },
+    "max_drawdown": {
+      "type": "number",
+      "default": 0
+    },
+    "gate_success_rate": {
+      "type": "number",
+      "default": 0
+    },
+    "mm_compliance": {
+      "type": "number",
+      "default": 100
+    },
+    "ulf_warnings": {
+      "type": "number",
+      "default": 0
+    },
+    "daily_target_hit": {
+      "type": "boolean",
+      "default": false
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "date"
+  ]
+}

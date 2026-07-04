@@ -1,0 +1,47 @@
+{
+  "name": "AuditLog",
+  "type": "object",
+  "properties": {
+    "event": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "TRADING",
+        "GOVERNANCE",
+        "RISK",
+        "SYSTEM",
+        "SECURITY",
+        "EXCHANGE"
+      ]
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "INFO",
+        "WARNING",
+        "ERROR",
+        "CRITICAL"
+      ],
+      "default": "INFO"
+    },
+    "actor": {
+      "type": "string"
+    },
+    "details": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "event",
+    "category"
+  ]
+}

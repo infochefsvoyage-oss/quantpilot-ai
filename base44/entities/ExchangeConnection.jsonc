@@ -1,0 +1,56 @@
+{
+  "name": "ExchangeConnection",
+  "type": "object",
+  "properties": {
+    "exchange": {
+      "type": "string",
+      "enum": [
+        "binance",
+        "mexc"
+      ]
+    },
+    "label": {
+      "type": "string"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "TESTNET",
+        "PAPER",
+        "SHADOW",
+        "LIVE"
+      ],
+      "default": "TESTNET"
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "PHASE_1",
+        "PHASE_2",
+        "PHASE_3",
+        "PHASE_4"
+      ],
+      "default": "PHASE_1"
+    },
+    "api_key_stored": {
+      "type": "boolean",
+      "default": false
+    },
+    "scan_only": {
+      "type": "boolean",
+      "default": false
+    },
+    "active": {
+      "type": "boolean",
+      "default": false
+    },
+    "connected_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "exchange",
+    "label"
+  ]
+}

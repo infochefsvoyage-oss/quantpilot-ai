@@ -7,6 +7,16 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
 // Add page imports here
+import Dashboard from './pages/Dashboard';
+import SniperMode from './pages/SniperMode';
+import Portfolio from './pages/Portfolio';
+import Risiko from './pages/Risiko';
+import Governance from './pages/Governance';
+import Journal from './pages/Journal';
+import ExchangeSetup from './pages/ExchangeSetup';
+import Backtest from './pages/Backtest';
+import LiveFeed from './pages/LiveFeed';
+import Einstellungen from './pages/Einstellungen';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -35,6 +45,16 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       {/* Add your page Route elements here */}
+      <Route path="/" element={<Dashboard />} />
+      <Route path="/sniper" element={<SniperMode />} />
+      <Route path="/portfolio" element={<Portfolio />} />
+      <Route path="/risiko" element={<Risiko />} />
+      <Route path="/governance" element={<Governance />} />
+      <Route path="/journal" element={<Journal />} />
+      <Route path="/exchanges" element={<ExchangeSetup />} />
+      <Route path="/backtest" element={<Backtest />} />
+      <Route path="/live-feed" element={<LiveFeed />} />
+      <Route path="/einstellungen" element={<Einstellungen />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

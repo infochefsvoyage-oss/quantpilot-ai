@@ -1,0 +1,113 @@
+{
+  "name": "Trade",
+  "type": "object",
+  "properties": {
+    "symbol": {
+      "type": "string"
+    },
+    "exchange": {
+      "type": "string",
+      "enum": [
+        "binance",
+        "mexc"
+      ]
+    },
+    "side": {
+      "type": "string",
+      "enum": [
+        "LONG",
+        "SHORT"
+      ]
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "PAPER",
+        "SHADOW",
+        "LIVE"
+      ],
+      "default": "PAPER"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "closed",
+        "cancelled",
+        "reconciled"
+      ],
+      "default": "open"
+    },
+    "signal_id": {
+      "type": "string"
+    },
+    "ascan_score": {
+      "type": "number"
+    },
+    "entry_price": {
+      "type": "number"
+    },
+    "current_price": {
+      "type": "number"
+    },
+    "stop_loss": {
+      "type": "number"
+    },
+    "take_profit": {
+      "type": "number"
+    },
+    "size": {
+      "type": "number"
+    },
+    "position_value": {
+      "type": "number"
+    },
+    "risk_amount": {
+      "type": "number"
+    },
+    "leverage": {
+      "type": "number",
+      "default": 1
+    },
+    "tp1_executed": {
+      "type": "boolean",
+      "default": false
+    },
+    "tp2_executed": {
+      "type": "boolean",
+      "default": false
+    },
+    "tp3_executed": {
+      "type": "boolean",
+      "default": false
+    },
+    "realized_pnl": {
+      "type": "number",
+      "default": 0
+    },
+    "unrealized_pnl": {
+      "type": "number",
+      "default": 0
+    },
+    "rr": {
+      "type": "number"
+    },
+    "opened_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "closed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "close_reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "symbol",
+    "exchange",
+    "side",
+    "mode"
+  ]
+}

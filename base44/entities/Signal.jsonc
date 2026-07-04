@@ -1,0 +1,92 @@
+{
+  "name": "Signal",
+  "type": "object",
+  "properties": {
+    "symbol": {
+      "type": "string"
+    },
+    "exchange": {
+      "type": "string",
+      "enum": [
+        "binance",
+        "mexc"
+      ]
+    },
+    "side": {
+      "type": "string",
+      "enum": [
+        "LONG",
+        "SHORT"
+      ]
+    },
+    "ascan_score": {
+      "type": "number"
+    },
+    "rr": {
+      "type": "number"
+    },
+    "spread": {
+      "type": "number"
+    },
+    "funding": {
+      "type": "number"
+    },
+    "entry_price": {
+      "type": "number"
+    },
+    "stop_loss": {
+      "type": "number"
+    },
+    "take_profit": {
+      "type": "number"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "ENTER",
+        "ENTER_REDUCED",
+        "WATCH_ONLY",
+        "NO_TRADE"
+      ]
+    },
+    "gates": {
+      "type": "object",
+      "properties": {
+        "liquidity_sweep": {
+          "type": "boolean"
+        },
+        "reclaim_rejection": {
+          "type": "boolean"
+        },
+        "volume_confirmation": {
+          "type": "boolean"
+        },
+        "htf_alignment": {
+          "type": "boolean"
+        }
+      }
+    },
+    "timeframe": {
+      "type": "string",
+      "default": "15m"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "expired",
+        "executed",
+        "dismissed"
+      ],
+      "default": "active"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "symbol",
+    "exchange",
+    "decision"
+  ]
+}

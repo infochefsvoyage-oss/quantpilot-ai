@@ -1,0 +1,29 @@
+{
+  "name": "ULFWarning",
+  "type": "object",
+  "properties": {
+    "severity": {
+      "type": "string",
+      "enum": [
+        "INFO",
+        "WARNING",
+        "CRITICAL"
+      ]
+    },
+    "module": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "severity",
+    "module",
+    "message"
+  ]
+}
