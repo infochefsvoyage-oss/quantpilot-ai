@@ -1,68 +1,105 @@
-import React, { useState } from 'react';
-import Layout from '@/components/Layout';
-import StatusHeader from '@/components/StatusHeader';
-import { KpiCard, SectionCard } from '@/components/terminal/Ui';
-import { JOURNAL_TODAY } from '@/lib/terminalState';
-import { TrendingUp, TrendingDown, Target, ShieldCheck } from 'lucide-react';
+import React from "react";
+import { BookOpen, TrendingUp, TrendingDown, Target } from "lucide-react";
+import { journalEntries, formatPnl } from "@/lib/quantData";
+import PanelCard from "@/components/PanelCard";
+import StatusBadge from "@/components/StatusBadge";
 
 export default function Journal() {
-  const [notes, setNotes] = useState(JOURNAL_TODAY.notes);
-  const j = JOURNAL_TODAY;
+  const sorted = [...journalEntries].sort((a, b) => b.date.localeCompare(a.date));
 
   return (
-    <Layout>
-      <StatusHeader title="Daily Performance Journal" subtitle={`Tagesbericht · ${j.date}`} />
-      <main className="flex-1 p-6 space-y-5 overflow-y-auto">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <KpiCard label="Trades gesamt" value={j.trades_count} tone="info" />
-          <KpiCard label="Win Rate" value={j.win_rate} unit="%" tone={j.win_rate >= 60 ? 'positive' : 'warning'} hint={`${j.wins}W / ${j.losses}L`} />
-          <KpiCard label="Realisierter PnL" value={`${j.realized_pnl >= 0 ? '+' : ''}${j.realized_pnl}`} unit="%" tone={j.realized_pnl >= 0 ? 'positive' : 'negative'} />
-          <KpiCard label="Max Drawdown" value={j.max_drawdown} unit="%" tone={j.max_drawdown >= 4 ? 'negative' : 'default'} />
-        </div>
+    <div className="min-h-full p-6">
+      <div className="mb-6">
+        <h1 className="font-heading text-2xl font-bold text-foreground flex items-center gap-2">
+          <BookOpen className="h-6 w-6 text-primary" />
+          Daily Performance Journal
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">Tägliche Reflexion – Disziplin & Money-Management-Einhaltung</p>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <SectionCard title="Qualitätsmetriken">
-            <div className="space-y-3">
-              <MetricRow icon={<TrendingUp className="w-4 h-4 text-emerald-400" />} label="Gate-Erfolgsrate (A+)" value={`${j.gate_success_rate}%`} tone={j.gate_success_rate >= 70 ? 'text-emerald-400' : 'text-amber-400'} />
-              <MetricRow icon={<ShieldCheck className="w-4 h-4 text-cyan-400" />} label="Money-Management-Einhaltung" value={`${j.mm_compliance}%`} tone="text-emerald-400" />
-              <MetricRow icon={<TrendingDown className="w-4 h-4 text-amber-400" />} label="ULF Warnungen" value={j.ulf_warnings} tone={j.ulf_warnings > 2 ? 'text-amber-400' : 'text-slate-300'} />
-              <MetricRow icon={<Target className="w-4 h-4 text-cyan-400" />} label="Tagesziel" value={j.daily_target_hit ? 'erreicht ✓' : 'offen'} tone={j.daily_target_hit ? 'text-emerald-400' : 'text-slate-300'} />
-            </div>
-          </SectionCard>
+      {/* Summary */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {(() => {
+          const totalPnl = journalEntries.reduce((s, e) => s + e.daily_pnl, 0);
+          const totalTrades = journalEntries.reduce((s, e) => s + e.trades_count, 0);
+          const totalWins = journalEntries.reduce((s, e) => s + e.wins, 0);
+          const avgWinRate = journalEntries.reduce((s, e) => s + e.win_rate, 0) / journalEntries.length;
+          return (
+            <>
+              <JournalStat label="Gesamt PnL (3 Tage)" value={formatPnl(totalPnl)} unit="USDT" color={totalPnl >= 0 ? "profit" : "loss"} />
+              <JournalStat label="Trades gesamt" value={totalTrades} unit={`${totalWins} Gewinne`} />
+              <JournalStat label="Ø Win Rate" value={`${avgWinRate.toFixed(1)}%`} color={avgWinRate >= 50 ? "profit" : "loss"} />
+              <JournalStat label="Tagesziel Treffer" value={journalEntries.filter((e) => e.daily_target_hit).length} unit={`von ${journalEntries.length} Tagen`} color="primary" />
+            </>
+          );
+        })()}
+      </div>
 
-          <SectionCard title="Operator-Notizen">
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={8} placeholder="Notizen zum Handelstag: Setup-Qualität, emotionale Disziplin, Verbesserungen..." className="w-full bg-[#0F1524] border border-white/10 rounded-md px-3 py-2 text-[12px] text-slate-200 resize-none" />
-            <div className="flex justify-end mt-3">
-              <button className="px-4 py-2 rounded-md text-[12px] font-mono font-semibold bg-cyan-500 text-black hover:bg-cyan-400">Notiz speichern</button>
-            </div>
-          </SectionCard>
-        </div>
-
-        <SectionCard title="Verlauf (letzte 7 Tage)">
-          <div className="flex items-end gap-2 h-32">
-            {[0.6, -0.4, 1.2, -0.8, 0.9, 1.5, j.realized_pnl].map((v, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full flex-1 flex items-end">
-                  <div
-                    className={`w-full rounded-t ${v >= 0 ? 'bg-emerald-400/70' : 'bg-red-400/70'}`}
-                    style={{ height: `${Math.min(100, Math.abs(v) * 35)}%` }}
-                  />
-                </div>
-                <span className="text-[9px] text-slate-500 font-mono">T-{6 - i}</span>
+      {/* Daily Entries */}
+      <div className="mt-4 space-y-4">
+        {sorted.map((entry) => {
+          const pnlPositive = entry.daily_pnl >= 0;
+          return (
+            <PanelCard
+              key={entry.id}
+              title={new Date(entry.date).toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
+              action={entry.daily_target_hit ? <StatusBadge status="ZIEL ERREICHT" color="profit" /> : <StatusBadge status="ZIEL OFFEN" color="muted" />}
+            >
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-6">
+                <MetricBox label="Trades" value={entry.trades_count} />
+                <MetricBox label="Win Rate" value={`${entry.win_rate}%`} color={entry.win_rate >= 50 ? "profit" : "loss"} />
+                <MetricBox label="Tages-PnL" value={formatPnl(entry.daily_pnl)} unit={`${formatPnl(entry.daily_pnl_percent)}%`} color={pnlPositive ? "profit" : "loss"} />
+                <MetricBox label="Max DD" value={`${entry.max_drawdown}%`} color="warning" />
+                <MetricBox label="Gate-Erfolg" value={`${entry.gate_success_rate}%`} color={entry.gate_success_rate >= 75 ? "profit" : "warning"} />
+                <MetricBox label="ULF Warnungen" value={entry.ulf_warnings} color={entry.ulf_warnings > 2 ? "loss" : "muted"} />
               </div>
-            ))}
-          </div>
-        </SectionCard>
-      </main>
-    </Layout>
+              <div className="mt-4 flex items-start gap-2">
+                <div className="flex items-center gap-2">
+                  {entry.mm_compliance ? (
+                    <StatusBadge status="MM EINGEHALTEN" color="profit" />
+                  ) : (
+                    <StatusBadge status="MM VERLETZT" color="loss" />
+                  )}
+                </div>
+                <p className="flex-1 text-sm text-muted-foreground italic">„{entry.notes}"</p>
+              </div>
+            </PanelCard>
+          );
+        })}
+      </div>
+
+      {/* Disclaimer */}
+      <div className="mt-6 rounded-lg border border-warning/20 bg-warning/5 px-4 py-3">
+        <div className="flex items-start gap-2">
+          <Target className="h-4 w-4 shrink-0 text-warning mt-0.5" />
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-warning">Daily Profit ist ein Ziel-KPI, kein Versprechen.</span>{" "}
+            Das Journal dokumentiert reale Performance – gute und schlechte Tage. Disziplin schlägt kurzfristige Gewinne.
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 
-function MetricRow({ icon, label, value, tone }) {
+function JournalStat({ label, value, unit, color = "muted" }) {
+  const colors = { muted: "text-foreground", profit: "text-profit", loss: "text-loss", primary: "text-primary" };
   return (
-    <div className="flex items-center justify-between p-3 rounded-md border border-white/5 bg-white/[0.01]">
-      <span className="flex items-center gap-2 text-[12px] text-slate-300">{icon}{label}</span>
-      <span className={`text-[12px] font-mono font-semibold ${tone}`}>{value}</span>
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={`mt-2 font-mono text-xl font-bold ${colors[color]}`}>{value}</div>
+      <div className="mt-1 text-xs text-muted-foreground">{unit}</div>
+    </div>
+  );
+}
+
+function MetricBox({ label, value, unit, color = "muted" }) {
+  const colors = { muted: "text-foreground", profit: "text-profit", loss: "text-loss", primary: "text-primary", warning: "text-warning" };
+  return (
+    <div className="rounded-md border border-border bg-secondary/30 px-3 py-2">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={`mt-1 font-mono text-sm font-bold ${colors[color]}`}>{value}</div>
+      {unit && <div className="text-xs text-muted-foreground">{unit}</div>}
     </div>
   );
 }

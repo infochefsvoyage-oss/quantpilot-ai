@@ -1,22 +1,23 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import ScrollToTop from './components/ScrollToTop';
-// Add page imports here
-import Dashboard from './pages/Dashboard';
-import SniperMode from './pages/SniperMode';
-import Portfolio from './pages/Portfolio';
-import Risiko from './pages/Risiko';
-import Governance from './pages/Governance';
-import Journal from './pages/Journal';
-import ExchangeSetup from './pages/ExchangeSetup';
-import Backtest from './pages/Backtest';
-import LiveFeed from './pages/LiveFeed';
-import Einstellungen from './pages/Einstellungen';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import Layout from '@/components/Layout';
+import Dashboard from '@/pages/Dashboard';
+import SniperMode from '@/pages/SniperMode';
+import Portfolio from '@/pages/Portfolio';
+import Risk from '@/pages/Risk';
+import Governance from '@/pages/Governance';
+import Journal from '@/pages/Journal';
+import ExchangeSetup from '@/pages/ExchangeSetup';
+import Backtest from '@/pages/Backtest';
+import LiveFeed from '@/pages/LiveFeed';
+import SettingsPage from '@/pages/Settings';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -44,17 +45,20 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
-      {/* Add your page Route elements here */}
-      <Route path="/" element={<Dashboard />} />
-      <Route path="/sniper" element={<SniperMode />} />
-      <Route path="/portfolio" element={<Portfolio />} />
-      <Route path="/risiko" element={<Risiko />} />
-      <Route path="/governance" element={<Governance />} />
-      <Route path="/journal" element={<Journal />} />
-      <Route path="/exchanges" element={<ExchangeSetup />} />
-      <Route path="/backtest" element={<Backtest />} />
-      <Route path="/live-feed" element={<LiveFeed />} />
-      <Route path="/einstellungen" element={<Einstellungen />} />
+      <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/sniper" element={<SniperMode />} />
+          <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/risk" element={<Risk />} />
+          <Route path="/governance" element={<Governance />} />
+          <Route path="/journal" element={<Journal />} />
+          <Route path="/exchange" element={<ExchangeSetup />} />
+          <Route path="/backtest" element={<Backtest />} />
+          <Route path="/live-feed" element={<LiveFeed />} />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Route>
+      </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );

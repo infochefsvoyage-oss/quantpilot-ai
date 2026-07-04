@@ -1,168 +1,281 @@
-import React from 'react';
-import Layout from '@/components/Layout';
-import StatusHeader from '@/components/StatusHeader';
-import { DecisionBadge, GateStatus, KpiCard, SectionCard } from '@/components/terminal/Ui';
-import { RUNTIME_STATUS, DASHBOARD_KPI, RECENT_SIGNALS, OPEN_POSITIONS, ULF_WARNINGS, PENDING_GOVERNANCE } from '@/lib/terminalState';
-import { AlertTriangle, ShieldCheck, Zap, TrendingUp, TrendingDown, Bell } from 'lucide-react';
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  TrendingUp, TrendingDown, Crosshair, ShieldAlert, Lock,
+  AlertTriangle, Activity, Gauge, Layers, Radio,
+} from "lucide-react";
+import {
+  runtimeStatus, riskDefaults, portfolioSummary, sampleSignals,
+  openTrades, pendingGovernance, ulfWarnings, decisionConfig,
+  formatCurrency, formatPnl,
+} from "@/lib/quantData";
+import PanelCard from "@/components/PanelCard";
+import StatusBadge from "@/components/StatusBadge";
+import GateIndicator from "@/components/GateIndicator";
 
 export default function Dashboard() {
-  const pnlTone = DASHBOARD_KPI.daily_pnl >= 0 ? 'positive' : 'negative';
-  const ddTone = DASHBOARD_KPI.max_drawdown >= 4 ? 'negative' : DASHBOARD_KPI.max_drawdown >= 2.5 ? 'warning' : 'default';
+  const topSignal = sampleSignals[0];
+  const dailyPnlPositive = portfolioSummary.daily_pnl >= 0;
+  const weeklyPnlPositive = portfolioSummary.weekly_pnl >= 0;
 
   return (
-    <Layout>
-      <StatusHeader title="Dashboard" subtitle="Echtzeit-Übersicht über Modus, Risiko, Positionen und Signale" />
+    <div className="min-h-full p-6">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="font-heading text-2xl font-bold text-foreground">Dashboard</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          QuantPilot AI – OP-777 Sniper Desk · Kapitalerhalt hat Vorrang
+        </p>
+      </div>
 
-      {RUNTIME_STATUS.emergency_stop && (
-        <div className="mx-6 mt-4 flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-500/10 border border-red-500/40 text-red-300 text-[12px]">
-          <AlertTriangle className="w-4 h-4" /> EMERGENCY STOP AKTIV – alle neuen Trades blockiert.
-        </div>
-      )}
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <KpiCard
+          icon={Crosshair}
+          label="Risiko pro Trade"
+          value={`${riskDefaults.risk_per_trade}%`}
+          sub={`Level ${riskDefaults.risk_level.replace("LEVEL_", "L")}`}
+          color="primary"
+        />
+        <KpiCard
+          icon={Layers}
+          label="Offene Positionen"
+          value={`${portfolioSummary.open_positions}`}
+          sub={`Max ${riskDefaults.max_open_positions} · Exposure ${portfolioSummary.exposure_percent}%`}
+          color="primary"
+        />
+        <KpiCard
+          icon={dailyPnlPositive ? TrendingUp : TrendingDown}
+          label="Tages-PnL"
+          value={formatPnl(portfolioSummary.daily_pnl)}
+          sub={`${formatPnl(portfolioSummary.daily_pnl_percent)}% · Ziel ${riskDefaults.daily_target}%`}
+          color={dailyPnlPositive ? "profit" : "loss"}
+        />
+        <KpiCard
+          icon={Gauge}
+          label="Max Drawdown"
+          value={`${portfolioSummary.max_drawdown}%`}
+          sub={`Limit ${riskDefaults.max_drawdown_pause}%`}
+          color={portfolioSummary.max_drawdown > riskDefaults.max_drawdown_pause * 0.7 ? "warning" : "primary"}
+        />
+      </div>
 
-      <main className="flex-1 p-6 space-y-5 overflow-y-auto">
-        {/* KPI Row */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <KpiCard label="Modus" value={RUNTIME_STATUS.mode} tone="info" hint={`Phase ${RUNTIME_STATUS.phase}`} />
-          <KpiCard label="Risiko / Trade" value={DASHBOARD_KPI.risk_per_trade} unit="%" tone="default" />
-          <KpiCard label="Offene Positionen" value={DASHBOARD_KPI.open_positions} tone={DASHBOARD_KPI.open_positions > 0 ? 'info' : 'default'} />
-          <KpiCard label="Tages-PnL" value={`${DASHBOARD_KPI.daily_pnl >= 0 ? '+' : ''}${DASHBOARD_KPI.daily_pnl}`} unit="%" tone={pnlTone} hint={`Ziel ${DASHBOARD_KPI.daily_target}%`} />
-          <KpiCard label="Max Drawdown" value={DASHBOARD_KPI.max_drawdown} unit="%" tone={ddTone} hint={`Pause ab 6%`} />
-          <KpiCard label="Exposure" value={DASHBOARD_KPI.portfolio_exposure} unit="%" tone={DASHBOARD_KPI.portfolio_exposure > 8 ? 'warning' : 'default'} hint="Cap 10%" />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Left col: Signals + Positions */}
-          <div className="lg:col-span-2 space-y-5">
-            <SectionCard title="Letzte ASCAN-Signale" right={<span className="text-[10px] text-slate-500 font-mono">{RECENT_SIGNALS.length} ausgewertet</span>}>
-              <div className="space-y-2">
-                {RECENT_SIGNALS.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between gap-3 p-3 rounded-md border border-white/5 bg-white/[0.01]">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-1 h-9 rounded-full ${s.side === 'LONG' ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[13px] text-white font-semibold">{s.symbol}</span>
-                          <span className="text-[10px] text-slate-500">{s.exchange.toUpperCase()}</span>
-                          <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${s.side === 'LONG' ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10'}`}>{s.side}</span>
-                        </div>
-                        <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                          Score {s.ascan_score} · RR {s.rr} · {s.timeframe}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className="hidden sm:flex gap-1">
-                        {Object.values(s.gates).map((g, i) => (
-                          <span key={i} className={`w-2 h-2 rounded-full ${g ? 'bg-emerald-400' : 'bg-red-400/60'}`} />
-                        ))}
-                      </div>
-                      <DecisionBadge decision={s.decision} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Offene Positionen" right={<span className="text-[10px] text-slate-500 font-mono">{OPEN_POSITIONS.length} aktiv</span>}>
-              {OPEN_POSITIONS.length === 0 ? (
-                <p className="text-[12px] text-slate-500 text-center py-6">Keine offenen Positionen.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-[12px] font-mono">
-                    <thead>
-                      <tr className="text-left text-slate-500 text-[10px] uppercase tracking-wider border-b border-white/5">
-                        <th className="py-2 pr-3">Symbol</th>
-                        <th className="py-2 pr-3">Side</th>
-                        <th className="py-2 pr-3">Entry</th>
-                        <th className="py-2 pr-3">Aktuell</th>
-                        <th className="py-2 pr-3">Stop</th>
-                        <th className="py-2 pr-3 text-right">uPnL</th>
-                        <th className="py-2 pr-3 text-right">RR</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {OPEN_POSITIONS.map((p) => (
-                        <tr key={p.id} className="border-b border-white/5">
-                          <td className="py-2 pr-3 text-white">{p.symbol}</td>
-                          <td className="py-2 pr-3"><span className={p.side === 'LONG' ? 'text-emerald-400' : 'text-red-400'}>{p.side}</span></td>
-                          <td className="py-2 pr-3">{p.entry_price}</td>
-                          <td className="py-2 pr-3">{p.current_price}</td>
-                          <td className="py-2 pr-3 text-amber-400">{p.stop_loss}</td>
-                          <td className={`py-2 pr-3 text-right ${p.unrealized_pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>+{p.unrealized_pnl}</td>
-                          <td className="py-2 pr-3 text-right text-cyan-400">{p.rr}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </SectionCard>
+      {/* Runtime Status + Governance Pending */}
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <PanelCard title="Runtime Status" className="lg:col-span-2">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            <RuntimeItem label="ASCAN Engine" value={runtimeStatus.ascan_engine} />
+            <RuntimeItem label="ULF Governance" value={runtimeStatus.governance_engine} />
+            <RuntimeItem label="Risk Engine" value={runtimeStatus.risk_engine} />
+            <RuntimeItem label="Portfolio Engine" value={runtimeStatus.portfolio_engine} />
+            <RuntimeItem label="Exchange Router" value={runtimeStatus.exchange_router} />
+            <RuntimeItem label="Audit Log" value={runtimeStatus.audit_log} />
+            <RuntimeItem label="Modus" value={runtimeStatus.mode} highlight />
+            <RuntimeItem label="Exchange Phase" value={runtimeStatus.exchange_phase} />
+            <RuntimeItem label="Circuit Breaker" value={runtimeStatus.circuit_breaker ? "ACTIVE" : "IDLE"} danger={runtimeStatus.circuit_breaker} />
           </div>
+        </PanelCard>
 
-          {/* Right col: Gate Status, Governance, ULF */}
-          <div className="space-y-5">
-            <SectionCard title="A+ Gate Status (Top-Signal)">
-              {RECENT_SIGNALS[0] ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-white text-[13px]">{RECENT_SIGNALS[0].symbol}</span>
-                    <DecisionBadge decision={RECENT_SIGNALS[0].decision} />
-                  </div>
-                  <GateStatus gates={RECENT_SIGNALS[0].gates} />
-                </div>
-              ) : <p className="text-[12px] text-slate-500">Kein aktives Signal.</p>}
-            </SectionCard>
-
-            <SectionCard title="Governance – Offene Freigaben" right={<span className="flex items-center gap-1 text-[10px] text-amber-400"><Bell className="w-3 h-3" />{PENDING_GOVERNANCE.length}</span>}>
-              {PENDING_GOVERNANCE.length === 0 ? (
-                <div className="flex items-center gap-2 text-[12px] text-slate-500"><ShieldCheck className="w-4 h-4 text-emerald-400" /> Keine offenen Freigaben.</div>
-              ) : (
-                <div className="space-y-2">
-                  {PENDING_GOVERNANCE.map((g) => (
-                    <div key={g.id} className="p-3 rounded-md border border-amber-500/30 bg-amber-500/5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-mono text-amber-300 font-semibold">{g.action_type}</span>
-                        <span className="text-[10px] text-slate-500">{g.prepared_at.slice(0, 10)}</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400 mt-1">{g.reason}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </SectionCard>
-
-            <SectionCard title="ULF Warnungen">
-              <div className="space-y-2">
-                {ULF_WARNINGS.map((w) => (
-                  <div key={w.id} className="flex items-start gap-2 text-[11px]">
-                    <span className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${w.level === 'CRITICAL' ? 'bg-red-400' : w.level === 'WARNING' ? 'bg-amber-400' : 'bg-slate-500'}`} />
-                    <span className={w.level === 'CRITICAL' ? 'text-red-300' : w.level === 'WARNING' ? 'text-amber-300' : 'text-slate-400'}>{w.message}</span>
-                    <span className="text-slate-600 ml-auto font-mono">{w.ts}</span>
-                  </div>
-                ))}
-              </div>
-            </SectionCard>
+        <PanelCard
+          title="Governance Pending"
+          action={
+            <Link to="/governance" className="text-xs text-primary hover:underline">
+              Alle ansehen →
+            </Link>
+          }
+        >
+          <div className="flex items-center justify-center mb-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-warning/10 glow-amber">
+              <Lock className="h-7 w-7 text-warning" />
+            </div>
           </div>
-        </div>
+          <div className="text-center">
+            <div className="font-mono text-3xl font-bold text-warning">{pendingGovernance.length}</div>
+            <div className="text-xs text-muted-foreground">Aktionen warten auf Freigabe</div>
+          </div>
+          <div className="mt-4 space-y-2">
+            {pendingGovernance.map((g) => (
+              <div key={g.id} className="flex items-center justify-between rounded-md border border-border bg-secondary/50 px-3 py-2">
+                <span className="text-xs text-foreground">{g.action_type.replace(/_/g, " ")}</span>
+                <StatusBadge status="PENDING" color="warning" />
+              </div>
+            ))}
+          </div>
+        </PanelCard>
+      </div>
 
-        {/* Daily target bar */}
-        <SectionCard title="Tagesfortschritt" right={
-          <span className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400">
-            {DASHBOARD_KPI.daily_pnl >= DASHBOARD_KPI.daily_target ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> : <Zap className="w-3.5 h-3.5 text-cyan-400" />}
-            {DASHBOARD_KPI.daily_pnl >= DASHBOARD_KPI.daily_target ? 'Ziel erreicht – Risiko reduzieren' : 'Auf Kurs'}
-          </span>
-        }>
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-2.5 rounded-full bg-white/5 overflow-hidden">
-              <div
-                className={`h-full rounded-full ${DASHBOARD_KPI.daily_pnl >= DASHBOARD_KPI.daily_target ? 'bg-emerald-400' : 'bg-gradient-to-r from-cyan-400 to-blue-500'}`}
-                style={{ width: `${Math.min(100, (DASHBOARD_KPI.daily_pnl / DASHBOARD_KPI.daily_target) * 100)}%` }}
+      {/* A+ Gate Status + Letzte Signale */}
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <PanelCard title="A+ Gate Status – Top Signal">
+          <div className="space-y-2">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-sm font-bold text-foreground">{topSignal.symbol}</span>
+                <StatusBadge status={topSignal.exchange} color="muted" />
+              </div>
+              <StatusBadge
+                status={decisionConfig[topSignal.decision].label}
+                color={decisionConfig[topSignal.decision].color}
               />
             </div>
-            <span className="text-[11px] font-mono text-slate-300">{DASHBOARD_KPI.daily_pnl}% / {DASHBOARD_KPI.daily_target}%</span>
+            <GateIndicator label="Liquidity Sweep" passed={topSignal.gate_liquidity_sweep} />
+            <GateIndicator label="Reclaim / Rejection" passed={topSignal.gate_reclaim_rejection} />
+            <GateIndicator label="Volume Confirmation" passed={topSignal.gate_volume_confirmation} />
+            <GateIndicator label="HTF Alignment" passed={topSignal.gate_htf_alignment} />
+            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-border pt-3">
+              <Metric label="ASCAN Score" value={topSignal.ascan_score} good={topSignal.ascan_score >= 75} />
+              <Metric label="RR" value={topSignal.rr.toFixed(1)} good={topSignal.rr >= 2.5} />
+              <Metric label="HTF Bias" value={topSignal.htf_bias} good={topSignal.htf_bias !== "NEUTRAL"} />
+            </div>
           </div>
-        </SectionCard>
-      </main>
-    </Layout>
+        </PanelCard>
+
+        <PanelCard
+          title="Letzte Signale"
+          action={
+            <Link to="/sniper" className="text-xs text-primary hover:underline">
+              Sniper Mode →
+            </Link>
+          }
+        >
+          <div className="space-y-2">
+            {sampleSignals.map((s) => {
+              const dc = decisionConfig[s.decision];
+              return (
+                <div key={s.id} className="flex items-center justify-between rounded-md border border-border bg-secondary/30 px-3 py-2.5">
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-sm font-bold">{s.symbol}</span>
+                    <span className="text-xs text-muted-foreground">{s.exchange}</span>
+                    <div className="flex gap-0.5">
+                      {[s.gate_liquidity_sweep, s.gate_reclaim_rejection, s.gate_volume_confirmation, s.gate_htf_alignment].map((g, i) => (
+                        <span key={i} className={`h-1.5 w-1.5 rounded-full ${g ? "bg-profit" : "bg-loss"}`} />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-xs text-muted-foreground">S:{s.ascan_score} · RR:{s.rr.toFixed(1)}</span>
+                    <StatusBadge status={dc.label} color={dc.color} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </PanelCard>
+      </div>
+
+      {/* ULF Warnungen */}
+      <div className="mt-4">
+        <PanelCard title="ULF Warnungen" action={<AlertTriangle className="h-4 w-4 text-warning" />}>
+          <div className="space-y-2">
+            {ulfWarnings.map((w) => (
+              <div key={w.id} className="flex items-start gap-3 rounded-md border border-border bg-secondary/30 px-3 py-2.5">
+                <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${
+                  w.severity === "CRITICAL" ? "bg-loss" : w.severity === "WARNING" ? "bg-warning" : "bg-primary"
+                }`} />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-muted-foreground">{w.module}</span>
+                    <StatusBadge status={w.severity} color={
+                      w.severity === "CRITICAL" ? "loss" : w.severity === "WARNING" ? "warning" : "cyan"
+                    } />
+                  </div>
+                  <p className="mt-1 text-sm text-foreground">{w.message}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </PanelCard>
+      </div>
+
+      {/* Offene Positionen */}
+      <div className="mt-4">
+        <PanelCard title="Offene Positionen">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-xs text-muted-foreground">
+                  <th className="pb-2 text-left font-medium">Symbol</th>
+                  <th className="pb-2 text-left font-medium">Seite</th>
+                  <th className="pb-2 text-right font-medium">Entry</th>
+                  <th className="pb-2 text-right font-medium">Stop</th>
+                  <th className="pb-2 text-center font-medium">Status</th>
+                  <th className="pb-2 text-right font-medium">PnL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {openTrades.map((t) => (
+                  <tr key={t.id} className="border-b border-border/50">
+                    <td className="py-2.5 font-mono font-semibold">{t.symbol}</td>
+                    <td className="py-2.5">
+                      <span className={t.side === "LONG" ? "text-profit" : "text-loss"}>{t.side}</span>
+                    </td>
+                    <td className="py-2.5 text-right font-mono text-muted-foreground">{t.entry_price.toLocaleString("de-DE", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2.5 text-right font-mono text-loss">{t.stop_loss.toLocaleString("de-DE", { minimumFractionDigits: 2 })}</td>
+                    <td className="py-2.5 text-center">
+                      <StatusBadge status={t.status} color={t.status.includes("TP") ? "profit" : "muted"} />
+                    </td>
+                    <td className="py-2.5 text-right font-mono font-semibold text-profit">{formatPnl(t.pnl)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </PanelCard>
+      </div>
+
+      {/* Disclaimer */}
+      <div className="mt-6 rounded-lg border border-warning/20 bg-warning/5 px-4 py-3">
+        <div className="flex items-start gap-2">
+          <ShieldAlert className="h-4 w-4 shrink-0 text-warning mt-0.5" />
+          <p className="text-xs text-muted-foreground">
+            <span className="font-semibold text-warning">Daily Profit ist ein Ziel-KPI, kein Versprechen.</span>{" "}
+            Täglicher Gewinn kann nicht garantiert werden. Kapitalerhalt hat absoluten Vorrang. Trading birgt Risiko des Totalverlusts.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KpiCard({ icon: Icon, label, value, sub, color }) {
+  const colors = {
+    primary: "text-primary bg-primary/10",
+    profit: "text-profit bg-profit/10",
+    loss: "text-loss bg-loss/10",
+    warning: "text-warning bg-warning/10",
+  };
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">{label}</span>
+        <div className={`flex h-8 w-8 items-center justify-center rounded-md ${colors[color]}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+      <div className={`mt-3 font-mono text-2xl font-bold ${colors[color].split(" ")[0]}`}>{value}</div>
+      <div className="mt-1 font-mono text-xs text-muted-foreground">{sub}</div>
+    </div>
+  );
+}
+
+function RuntimeItem({ label, value, highlight, danger }) {
+  return (
+    <div className="flex items-center justify-between rounded-md border border-border bg-secondary/30 px-3 py-2">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className={`font-mono text-xs font-semibold ${
+        danger ? "text-loss" : highlight ? "text-primary" : value === "ACTIVE" ? "text-profit" : "text-foreground"
+      }`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function Metric({ label, value, good }) {
+  return (
+    <div className="text-center">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={`mt-1 font-mono text-sm font-bold ${good ? "text-profit" : "text-loss"}`}>{value}</div>
+    </div>
   );
 }

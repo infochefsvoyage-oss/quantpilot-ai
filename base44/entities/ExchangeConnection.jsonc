@@ -2,55 +2,69 @@
   "name": "ExchangeConnection",
   "type": "object",
   "properties": {
-    "exchange": {
-      "type": "string",
-      "enum": [
-        "binance",
-        "mexc"
-      ]
-    },
     "label": {
       "type": "string"
     },
-    "mode": {
+    "exchange": {
       "type": "string",
       "enum": [
-        "TESTNET",
-        "PAPER",
-        "SHADOW",
-        "LIVE"
-      ],
-      "default": "TESTNET"
+        "BINANCE",
+        "MEXC"
+      ]
     },
     "phase": {
       "type": "string",
       "enum": [
-        "PHASE_1",
-        "PHASE_2",
-        "PHASE_3",
-        "PHASE_4"
+        "DISABLED",
+        "TESTNET_PAPER",
+        "SHADOW",
+        "LIVE"
       ],
-      "default": "PHASE_1"
+      "default": "DISABLED"
     },
-    "api_key_stored": {
+    "scan_enabled": {
+      "type": "boolean",
+      "default": true
+    },
+    "paper_enabled": {
       "type": "boolean",
       "default": false
     },
-    "scan_only": {
+    "shadow_enabled": {
       "type": "boolean",
       "default": false
     },
-    "active": {
+    "live_enabled": {
       "type": "boolean",
       "default": false
     },
-    "connected_at": {
+    "api_key_id": {
+      "type": "string"
+    },
+    "api_key_secret_encrypted": {
+      "type": "string"
+    },
+    "last_sync": {
       "type": "string",
       "format": "date-time"
+    },
+    "rate_limit_status": {
+      "type": "string",
+      "enum": [
+        "OK",
+        "THROTTLED",
+        "BLOCKED"
+      ],
+      "default": "OK"
+    },
+    "circuit_breaker_active": {
+      "type": "boolean",
+      "default": false
     }
   },
   "required": [
+    "label",
     "exchange",
-    "label"
+    "phase"
   ]
 }
