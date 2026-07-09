@@ -1,0 +1,126 @@
+{
+  "name": "ReverseShortSignal",
+  "type": "object",
+  "properties": {
+    "symbol": {
+      "type": "string"
+    },
+    "exchange": {
+      "type": "string",
+      "enum": [
+        "BINANCE",
+        "MEXC"
+      ]
+    },
+    "ascan_score": {
+      "type": "number"
+    },
+    "rr": {
+      "type": "number"
+    },
+    "reversal_type": {
+      "type": "string",
+      "enum": [
+        "LIQUIDITY_SWEEP_REVERSAL",
+        "FAKEOUT_REVERSAL",
+        "HTF_REJECTION_REVERSAL",
+        "EXHAUSTION_REVERSAL",
+        "DOUBLE_TOP_REVERSAL"
+      ]
+    },
+    "liquidity_sweep_detected": {
+      "type": "boolean",
+      "default": false
+    },
+    "sweep_direction": {
+      "type": "string",
+      "enum": [
+        "UPWARD_SWEEP",
+        "DOWNWARD_SWEEP",
+        "NONE"
+      ]
+    },
+    "volume_confirmation": {
+      "type": "boolean",
+      "default": false
+    },
+    "htf_bias": {
+      "type": "string",
+      "enum": [
+        "LONG",
+        "SHORT",
+        "NEUTRAL"
+      ]
+    },
+    "entry_price": {
+      "type": "number"
+    },
+    "stop_loss": {
+      "type": "number"
+    },
+    "tp1_price": {
+      "type": "number"
+    },
+    "tp2_price": {
+      "type": "number"
+    },
+    "tp3_runner_price": {
+      "type": "number"
+    },
+    "trailing_stop_active": {
+      "type": "boolean",
+      "default": false
+    },
+    "trailing_stop_distance_percent": {
+      "type": "number"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "ENTER_SHORT",
+        "ENTER_SHORT_REDUCED",
+        "WATCH_ONLY",
+        "NO_TRADE"
+      ]
+    },
+    "runner_exit_strategy": {
+      "type": "string",
+      "enum": [
+        "FULL_EXIT_TP3",
+        "TRAILING_RUNNER",
+        "PARTIAL_RUNNER",
+        "BREAK_EVEN_RUNNER"
+      ]
+    },
+    "governance_approved": {
+      "type": "boolean",
+      "default": false
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "DETECTED",
+        "VALIDATED",
+        "GOVERNANCE_PENDING",
+        "APPROVED",
+        "EXECUTED",
+        "CLOSED",
+        "STOPPED_OUT",
+        "REJECTED"
+      ],
+      "default": "DETECTED"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "symbol",
+    "exchange",
+    "ascan_score",
+    "rr",
+    "reversal_type",
+    "decision",
+    "status"
+  ]
+}

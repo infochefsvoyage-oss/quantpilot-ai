@@ -1,0 +1,95 @@
+{
+  "name": "ArbOpportunity",
+  "type": "object",
+  "properties": {
+    "symbol": {
+      "type": "string"
+    },
+    "buy_exchange": {
+      "type": "string",
+      "enum": [
+        "BINANCE",
+        "MEXC",
+        "BYBIT",
+        "OKX"
+      ]
+    },
+    "sell_exchange": {
+      "type": "string",
+      "enum": [
+        "BINANCE",
+        "MEXC",
+        "BYBIT",
+        "OKX"
+      ]
+    },
+    "buy_price": {
+      "type": "number"
+    },
+    "sell_price": {
+      "type": "number"
+    },
+    "raw_spread_percent": {
+      "type": "number"
+    },
+    "taker_fee_percent": {
+      "type": "number"
+    },
+    "estimated_slippage_percent": {
+      "type": "number"
+    },
+    "funding_cost_percent": {
+      "type": "number"
+    },
+    "net_profit_percent": {
+      "type": "number"
+    },
+    "market_regime": {
+      "type": "string",
+      "enum": [
+        "CALM",
+        "VOLATILE",
+        "TRENDING",
+        "ILLIQUID",
+        "EXTREME"
+      ]
+    },
+    "is_profitable_after_costs": {
+      "type": "boolean",
+      "default": false
+    },
+    "telegram_alert_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "governance_approved": {
+      "type": "boolean",
+      "default": false
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "DETECTED",
+        "ALERTED",
+        "GOVERNANCE_PENDING",
+        "APPROVED",
+        "EXECUTED",
+        "EXPIRED",
+        "REJECTED"
+      ],
+      "default": "DETECTED"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "symbol",
+    "buy_exchange",
+    "sell_exchange",
+    "buy_price",
+    "sell_price",
+    "market_regime",
+    "status"
+  ]
+}

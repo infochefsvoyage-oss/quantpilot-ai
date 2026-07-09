@@ -18,6 +18,9 @@ import ExchangeSetup from '@/pages/ExchangeSetup';
 import Backtest from '@/pages/Backtest';
 import LiveFeed from '@/pages/LiveFeed';
 import SettingsPage from '@/pages/Settings';
+import ArbScan from '@/pages/ArbScan';
+import RunnerProtection from '@/pages/RunnerProtection';
+import ReverseShort from '@/pages/ReverseShort';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -56,6 +59,9 @@ const AuthenticatedApp = () => {
           <Route path="/exchange" element={<ExchangeSetup />} />
           <Route path="/backtest" element={<Backtest />} />
           <Route path="/live-feed" element={<LiveFeed />} />
+          <Route path="/arb-scan" element={<ArbScan />} />
+          <Route path="/runner" element={<RunnerProtection />} />
+          <Route path="/reverse-short" element={<ReverseShort />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Route>

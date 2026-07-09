@@ -3,6 +3,7 @@ import { Link, useLocation, Outlet } from "react-router-dom";
 import {
   LayoutDashboard, Crosshair, Briefcase, ShieldAlert, Lock,
   BookOpen, Plug, FlaskConical, Radio, Settings, Zap, Activity,
+  Radar, Shield, TrendingDown,
 } from "lucide-react";
 import { runtimeStatus } from "@/lib/quantData";
 
@@ -16,6 +17,9 @@ const navItems = [
   { to: "/exchange", label: "Exchange Setup", icon: Plug },
   { to: "/backtest", label: "Backtest", icon: FlaskConical },
   { to: "/live-feed", label: "Live Feed", icon: Radio },
+  { to: "/arb-scan", label: "ARB-Scan", icon: Radar },
+  { to: "/runner", label: "Runner", icon: Shield },
+  { to: "/reverse-short", label: "Reverse-Short", icon: TrendingDown },
   { to: "/settings", label: "Einstellungen", icon: Settings },
 ];
 

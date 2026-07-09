@@ -1,0 +1,145 @@
+{
+  "name": "RunnerPosition",
+  "type": "object",
+  "properties": {
+    "symbol": {
+      "type": "string"
+    },
+    "exchange": {
+      "type": "string",
+      "enum": [
+        "BINANCE",
+        "MEXC"
+      ]
+    },
+    "side": {
+      "type": "string",
+      "enum": [
+        "LONG",
+        "SHORT"
+      ]
+    },
+    "entry_price": {
+      "type": "number"
+    },
+    "current_price": {
+      "type": "number"
+    },
+    "initial_stop_loss": {
+      "type": "number"
+    },
+    "current_trailing_stop": {
+      "type": "number"
+    },
+    "break_even_price": {
+      "type": "number"
+    },
+    "break_even_activated": {
+      "type": "boolean",
+      "default": false
+    },
+    "tp1_price": {
+      "type": "number"
+    },
+    "tp2_price": {
+      "type": "number"
+    },
+    "tp3_price": {
+      "type": "number"
+    },
+    "tp1_filled": {
+      "type": "boolean",
+      "default": false
+    },
+    "tp2_filled": {
+      "type": "boolean",
+      "default": false
+    },
+    "tp3_filled": {
+      "type": "boolean",
+      "default": false
+    },
+    "tp1_close_percent": {
+      "type": "number",
+      "default": 40
+    },
+    "tp2_close_percent": {
+      "type": "number",
+      "default": 30
+    },
+    "tp3_close_percent": {
+      "type": "number",
+      "default": 30
+    },
+    "position_size": {
+      "type": "number"
+    },
+    "remaining_size_percent": {
+      "type": "number",
+      "default": 100
+    },
+    "unrealized_pnl": {
+      "type": "number"
+    },
+    "unrealized_pnl_percent": {
+      "type": "number"
+    },
+    "volatility_atr_percent": {
+      "type": "number"
+    },
+    "stop_adjustment_mode": {
+      "type": "string",
+      "enum": [
+        "FIXED",
+        "ATR_BASED",
+        "TIGHTENING",
+        "BREAK_EVEN"
+      ],
+      "default": "ATR_BASED"
+    },
+    "is_adopted": {
+      "type": "boolean",
+      "default": false
+    },
+    "adoption_governance_approved": {
+      "type": "boolean",
+      "default": false
+    },
+    "telegram_alert_sent": {
+      "type": "boolean",
+      "default": false
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PENDING_ADOPTION",
+        "ACTIVE",
+        "TP1_HIT",
+        "TP2_HIT",
+        "RUNNER_ACTIVE",
+        "CLOSED",
+        "STOPPED_OUT",
+        "BREAKEVEN"
+      ],
+      "default": "PENDING_ADOPTION"
+    },
+    "opened_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "closed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "symbol",
+    "exchange",
+    "side",
+    "entry_price",
+    "status"
+  ]
+}
