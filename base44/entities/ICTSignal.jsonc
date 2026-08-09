@@ -1,0 +1,277 @@
+{
+  "name": "ICTSignal",
+  "type": "object",
+  "properties": {
+    "symbol": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "FOREX",
+        "BINANCE",
+        "MEXC",
+        "MANUAL"
+      ],
+      "default": "FOREX"
+    },
+    "side": {
+      "type": "string",
+      "enum": [
+        "LONG",
+        "SHORT"
+      ]
+    },
+    "timeframe_entry": {
+      "type": "string",
+      "default": "M5"
+    },
+    "timeframe_context": {
+      "type": "string",
+      "default": "H1"
+    },
+    "htf_market_structure": {
+      "type": "string",
+      "enum": [
+        "BULLISH",
+        "BEARISH",
+        "NEUTRAL"
+      ],
+      "default": "NEUTRAL"
+    },
+    "pdh": {
+      "type": "number"
+    },
+    "pdl": {
+      "type": "number"
+    },
+    "pwh": {
+      "type": "number"
+    },
+    "pwl": {
+      "type": "number"
+    },
+    "asia_high": {
+      "type": "number"
+    },
+    "asia_low": {
+      "type": "number"
+    },
+    "london_high": {
+      "type": "number"
+    },
+    "london_low": {
+      "type": "number"
+    },
+    "equal_highs": {
+      "type": "boolean",
+      "default": false
+    },
+    "equal_lows": {
+      "type": "boolean",
+      "default": false
+    },
+    "liquidity_pool_type": {
+      "type": "string",
+      "enum": [
+        "PDH",
+        "PDL",
+        "PWH",
+        "PWL",
+        "ASIA_HIGH",
+        "ASIA_LOW",
+        "LONDON_HIGH",
+        "LONDON_LOW",
+        "EQUAL_HIGHS",
+        "EQUAL_LOWS",
+        "NONE"
+      ],
+      "default": "NONE"
+    },
+    "liquidity_sweep": {
+      "type": "boolean",
+      "default": false
+    },
+    "sweep_direction": {
+      "type": "string",
+      "enum": [
+        "UPWARD_SWEEP",
+        "DOWNWARD_SWEEP",
+        "NONE"
+      ],
+      "default": "NONE"
+    },
+    "displacement": {
+      "type": "boolean",
+      "default": false
+    },
+    "displacement_candles": {
+      "type": "number",
+      "default": 0
+    },
+    "mss_bos": {
+      "type": "string",
+      "enum": [
+        "MSS",
+        "BOS",
+        "NONE"
+      ],
+      "default": "NONE"
+    },
+    "mss_direction": {
+      "type": "string",
+      "enum": [
+        "BULLISH",
+        "BEARISH",
+        "NEUTRAL"
+      ],
+      "default": "NEUTRAL"
+    },
+    "fvg_detected": {
+      "type": "boolean",
+      "default": false
+    },
+    "fvg_top": {
+      "type": "number"
+    },
+    "fvg_bottom": {
+      "type": "number"
+    },
+    "order_block_detected": {
+      "type": "boolean",
+      "default": false
+    },
+    "ob_high": {
+      "type": "number"
+    },
+    "ob_low": {
+      "type": "number"
+    },
+    "premium_discount": {
+      "type": "string",
+      "enum": [
+        "PREMIUM",
+        "DISCOUNT",
+        "EQUILIBRIUM"
+      ],
+      "default": "EQUILIBRIUM"
+    },
+    "killzone": {
+      "type": "string",
+      "enum": [
+        "ASIA",
+        "LONDON",
+        "NEW_YORK",
+        "LONDON_CLOSE",
+        "OFF"
+      ],
+      "default": "OFF"
+    },
+    "gate_live_data": {
+      "type": "boolean",
+      "default": false
+    },
+    "gate_data_fresh": {
+      "type": "boolean",
+      "default": false
+    },
+    "gate_liquidity_sweep": {
+      "type": "boolean",
+      "default": false
+    },
+    "gate_displacement": {
+      "type": "boolean",
+      "default": false
+    },
+    "gate_mss_bos": {
+      "type": "boolean",
+      "default": false
+    },
+    "gate_fvg_ob_entry": {
+      "type": "boolean",
+      "default": false
+    },
+    "gate_crv_min": {
+      "type": "boolean",
+      "default": false
+    },
+    "gate_news_clear": {
+      "type": "boolean",
+      "default": false
+    },
+    "gate_risk_approved": {
+      "type": "boolean",
+      "default": false
+    },
+    "gate_governance_approved": {
+      "type": "boolean",
+      "default": false
+    },
+    "ict_score": {
+      "type": "number",
+      "default": 0
+    },
+    "ascan_score": {
+      "type": "number"
+    },
+    "crv": {
+      "type": "number",
+      "default": 0
+    },
+    "entry_price": {
+      "type": "number"
+    },
+    "stop_loss": {
+      "type": "number"
+    },
+    "tp1": {
+      "type": "number"
+    },
+    "tp2": {
+      "type": "number"
+    },
+    "tp3": {
+      "type": "number"
+    },
+    "pipeline_stage": {
+      "type": "string",
+      "enum": [
+        "WATCH",
+        "ARMED",
+        "CONFIRMED",
+        "PAPER_TRADE",
+        "BLOCKED",
+        "EXPIRED"
+      ],
+      "default": "WATCH"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "NO_TRADE",
+        "WATCH_ONLY",
+        "ARMED",
+        "PAPER_ENTRY"
+      ],
+      "default": "NO_TRADE"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "expired",
+        "executed",
+        "dismissed"
+      ],
+      "default": "active"
+    }
+  },
+  "required": [
+    "symbol",
+    "source",
+    "side"
+  ]
+}

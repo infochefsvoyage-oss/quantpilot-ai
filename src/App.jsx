@@ -22,6 +22,7 @@ import ArbScan from '@/pages/ArbScan';
 import RunnerProtection from '@/pages/RunnerProtection';
 import ReverseShort from '@/pages/ReverseShort';
 import Agents from '@/pages/Agents';
+import ICTScanner from '@/pages/ICTScanner';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -64,6 +65,7 @@ const AuthenticatedApp = () => {
           <Route path="/runner" element={<RunnerProtection />} />
           <Route path="/reverse-short" element={<ReverseShort />} />
           <Route path="/agents" element={<Agents />} />
+          <Route path="/ict-scanner" element={<ICTScanner />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Route>
