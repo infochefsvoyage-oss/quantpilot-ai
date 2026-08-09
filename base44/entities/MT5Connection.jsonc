@@ -1,0 +1,116 @@
+{
+  "name": "MT5Connection",
+  "type": "object",
+  "properties": {
+    "label": {
+      "type": "string"
+    },
+    "broker": {
+      "type": "string",
+      "enum": [
+        "VANTAGE"
+      ],
+      "default": "VANTAGE"
+    },
+    "platform": {
+      "type": "string",
+      "enum": [
+        "MT5"
+      ],
+      "default": "MT5"
+    },
+    "integration": {
+      "type": "string",
+      "enum": [
+        "METAQUOTES"
+      ],
+      "default": "METAQUOTES"
+    },
+    "account_id": {
+      "type": "string"
+    },
+    "server": {
+      "type": "string"
+    },
+    "login_status": {
+      "type": "string",
+      "enum": [
+        "LOGGED_OUT",
+        "LOGGED_IN",
+        "AUTH_FAILED"
+      ],
+      "default": "LOGGED_OUT"
+    },
+    "connection_status": {
+      "type": "string",
+      "enum": [
+        "DISCONNECTED",
+        "CONNECTED",
+        "DATA_ONLY",
+        "PAPER",
+        "EA_ARMED",
+        "EA_BLOCKED",
+        "LIVE"
+      ],
+      "default": "DISCONNECTED"
+    },
+    "execution_mode": {
+      "type": "string",
+      "enum": [
+        "READ_ONLY",
+        "PAPER",
+        "LIVE"
+      ],
+      "default": "PAPER"
+    },
+    "ea_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "ea_status": {
+      "type": "string",
+      "enum": [
+        "NOT_INSTALLED",
+        "OFFLINE",
+        "CONNECTED",
+        "HEARTBEAT_LOST",
+        "BLOCKED",
+        "ARMED"
+      ],
+      "default": "NOT_INSTALLED"
+    },
+    "last_heartbeat": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_market_sync": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_account_sync": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "magic_number": {
+      "type": "number",
+      "default": 777077
+    },
+    "heartbeat_timeout_seconds": {
+      "type": "number",
+      "default": 30
+    },
+    "live_execution_blocked": {
+      "type": "boolean",
+      "default": true
+    },
+    "symbol_mapping": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "label",
+    "broker",
+    "platform",
+    "integration"
+  ]
+}

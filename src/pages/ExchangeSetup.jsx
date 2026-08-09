@@ -3,6 +3,7 @@ import { Plug, Lock, CheckCircle2, XCircle, Radio, Zap } from "lucide-react";
 import { exchangeConnections } from "@/lib/quantData";
 import PanelCard from "@/components/PanelCard";
 import StatusBadge from "@/components/StatusBadge";
+import MetaTraderPanel from "@/components/mt5/MetaTraderPanel";
 
 const phaseLabels = {
   DISABLED: "Deaktiviert",
@@ -116,6 +117,9 @@ export default function ExchangeSetup() {
           </div>
         </PanelCard>
       </div>
+
+      {/* Vantage / MetaTrader 5 Integration */}
+      <MetaTraderPanel className="mt-4" />
 
       {/* Phase Flow */}
       <PanelCard title="Phasen-Migration" className="mt-4">
