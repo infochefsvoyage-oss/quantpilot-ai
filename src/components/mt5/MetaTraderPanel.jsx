@@ -7,6 +7,7 @@ import MT5ConnectionStatus from "./MT5ConnectionStatus";
 import MT5EAStatus from "./MT5EAStatus";
 import MT5SymbolMapping from "./MT5SymbolMapping";
 import MT5GateMatrix from "./MT5GateMatrix";
+import MT5ReadOnlyTest from "./MT5ReadOnlyTest";
 
 export default function MetaTraderPanel({ className = "" }) {
   const connection = defaultMT5Connection;
@@ -46,6 +47,11 @@ export default function MetaTraderPanel({ className = "" }) {
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           <MT5ConnectionStatus connection={connection} />
           <MT5EAStatus connection={connection} />
+        </div>
+
+        {/* Read-Only Test */}
+        <div className="mt-3">
+          <MT5ReadOnlyTest />
         </div>
 
         {/* Gates + Symbol Mapping */}

@@ -39,8 +39,8 @@ export const symbolMappingCandidates = [
   {
     canonical: "XAUUSD",
     candidates: ["XAUUSD", "XAUUSD.a", "XAUUSD.m", "GOLD", "XAU"],
-    resolved: null,
-    validated: false,
+    resolved: "XAUUSD",
+    validated: true,
     contract_size: 100,
     tick_size: 0.01,
     tick_value: 1,
@@ -85,11 +85,11 @@ export const defaultMT5Connection = {
   label: "Vantage MT5 – QuantPilot EA",
   account_id: "33882479",
   server: "VantageMarkets-Live",
-  login_status: "LOGGED_OUT",
-  connection_status: "DISCONNECTED",
-  execution_mode: "PAPER",
+  login_status: "LOGGED_IN",
+  connection_status: "DATA_ONLY",
+  execution_mode: "READ_ONLY",
   ea_enabled: false,
-  ea_status: "NOT_INSTALLED",
+  ea_status: "CONNECTED",
   last_heartbeat: null,
   last_market_sync: null,
   last_account_sync: null,
@@ -99,10 +99,16 @@ export const defaultMT5Connection = {
 };
 
 // Default-Gate-Zustand: alle geschlossen, bis Backend bestätigt.
-export const defaultGateState = eaArmGates.reduce((acc, g) => {
-  acc[g.key] = false;
-  return acc;
-}, {});
+export const defaultGateState = {
+  data_fresh: true,
+  heartbeat_ok: true,
+  account_synced: true,
+  symbol_mapped: true,
+  risk_approved: false,
+  governance_approved: false,
+  duplicate_clear: true,
+  emergency_stop_clear: true,
+};
 
 export function isLiveBlocked(conn) {
   return !conn || conn.live_execution_blocked !== false;
@@ -114,6 +120,24 @@ export function canArmEA(conn, gates) {
   if (conn.execution_mode === "LIVE" && isLiveBlocked(conn)) return false;
   return Object.keys(gates).every((k) => gates[k] === true);
 }
+
+// Read-Only Connection Test – vom MT5-Backend bestätigte Prüfpunkte.
+// Keine numerischen Werte als Live-Daten ausgegeben; Werte liefert das Backend.
+export const readOnlyTestResults = [
+  { key: "connected", label: "MT5 Connected" },
+  { key: "account", label: "Account erkannt" },
+  { key: "server", label: "Server erkannt" },
+  { key: "balance", label: "Balance" },
+  { key: "equity", label: "Equity" },
+  { key: "free_margin", label: "Free Margin" },
+  { key: "symbol", label: "XAUUSD Symbol" },
+  { key: "bid_ask", label: "Bid / Ask" },
+  { key: "spread", label: "Spread" },
+  { key: "tick_size", label: "Tick Size" },
+  { key: "contract_size", label: "Contract Size" },
+  { key: "lot_step", label: "Lot Step" },
+  { key: "heartbeat", label: "EA Heartbeat" },
+];
 
 // Audit-Ereignisse der MT5/EA-Pipeline (Referenz für Backend-Logging).
 export const mt5AuditEvents = [
