@@ -8,6 +8,7 @@ import MT5EAStatus from "./MT5EAStatus";
 import MT5SymbolMapping from "./MT5SymbolMapping";
 import MT5GateMatrix from "./MT5GateMatrix";
 import MT5ReadOnlyTest from "./MT5ReadOnlyTest";
+import MT5BridgeLiveCheck from "./MT5BridgeLiveCheck";
 
 export default function MetaTraderPanel({ className = "" }) {
   const connection = defaultMT5Connection;
@@ -41,6 +42,11 @@ export default function MetaTraderPanel({ className = "" }) {
             Keine Zugangsdaten im Frontend. MT5-Login/Passwort ausschließlich über sichere Backend-/Environment-Konfiguration.
             Account-ID und Server werden nur referenziert, niemals Credentials im React-Code.
           </p>
+        </div>
+
+        {/* Live-Verbindungs-Realität */}
+        <div className="mb-3">
+          <MT5BridgeLiveCheck />
         </div>
 
         {/* Status + EA */}
