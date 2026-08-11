@@ -76,7 +76,34 @@ export const eaArmGates = [
   { key: "emergency_stop_clear", label: "Kein Emergency Stop", desc: "Kill-Switch nicht gezogen" },
 ];
 
-// Default-Verbindungszustand (Platzhalter, bis Backend anbindet).
+// Drei-Stufen-Verifikationsmodell (v1.1).
+// Nur MT5_E2E_CONNECTED darf als echte Verbindung gelten.
+//   UI_CONTRACT       – nur Vertrag/UI, keine Bridge, kein Terminal
+//   BACKEND_CONNECTED – FastAPI läuft, aber MT5-Terminal nicht bewiesen
+//   MT5_E2E_CONNECTED – FastAPI → MT5 Python API → Terminal → Vantage bewiesen
+export const verificationTiers = {
+  UI_CONTRACT: { label: "UI_CONTRACT", color: "loss", desc: "Nur Vertrag/UI. Keine Bridge, kein Terminal angebunden." },
+  BACKEND_CONNECTED: { label: "BACKEND_CONNECTED", color: "warning", desc: "FastAPI erreichbar, aber MT5-Terminal nicht bewiesen." },
+  MT5_E2E_CONNECTED: { label: "MT5_E2E_CONNECTED", color: "profit", desc: "FastAPI → MT5 → Vantage bewiesen (E2E-Test grün)." },
+};
+
+// E2E-Live-Test: 10 Prüfungen, die auf dem MT5-Rechner gegen die Bridge laufen müssen.
+// status: pending | pass | fail – default pending, weil hier keine Bridge läuft.
+export const e2eTestChecks = [
+  { key: "fastapi_reachable", label: "[1] FastAPI erreichbar", status: "pending" },
+  { key: "mt5_initialize", label: "[2] MT5 initialize()", status: "pending" },
+  { key: "mt5_terminal_info", label: "[3] MT5 terminal_info()", status: "pending" },
+  { key: "mt5_account_info", label: "[4] MT5 account_info()", status: "pending" },
+  { key: "mt5_symbol_info", label: "[5] MT5 symbol_info('XAUUSD')", status: "pending" },
+  { key: "mt5_symbol_tick", label: "[6] MT5 symbol_info_tick('XAUUSD')", status: "pending" },
+  { key: "mt5_positions", label: "[7] MT5 positions_get()", status: "pending" },
+  { key: "ea_heartbeat", label: "[8] EA Heartbeat", status: "pending" },
+  { key: "broker_server_match", label: "[9] Broker-/Servername stimmt", status: "pending" },
+  { key: "execution_blocked", label: "[10] Execution bleibt BLOCKED", status: "pending" },
+];
+
+// Default-Verbindungszustand: ehrliche Basis = UI_CONTRACT.
+// Kein DATA_ONLY/CONNECTED vorgetäuschen, solange keine Bridge antwortet.
 export const defaultMT5Connection = {
   id: "mt5_vantage_001",
   broker: MT5_BROKER,
@@ -85,11 +112,12 @@ export const defaultMT5Connection = {
   label: "Vantage MT5 – QuantPilot EA",
   account_id: "33882479",
   server: "VantageMarkets-Live",
-  login_status: "LOGGED_IN",
-  connection_status: "DATA_ONLY",
+  verification_tier: "UI_CONTRACT",
+  login_status: "LOGGED_OUT",
+  connection_status: "DISCONNECTED",
   execution_mode: "READ_ONLY",
   ea_enabled: false,
-  ea_status: "CONNECTED",
+  ea_status: "NOT_INSTALLED",
   last_heartbeat: null,
   last_market_sync: null,
   last_account_sync: null,

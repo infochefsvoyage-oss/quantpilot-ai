@@ -1,9 +1,10 @@
 import React from "react";
 import StatusBadge from "@/components/StatusBadge";
-import { connectionStatusMeta } from "@/lib/mt5Data";
+import { connectionStatusMeta, verificationTiers } from "@/lib/mt5Data";
 
 export default function MT5ConnectionStatus({ connection }) {
   const meta = connectionStatusMeta[connection.connection_status] ?? connectionStatusMeta.DISCONNECTED;
+  const tier = verificationTiers[connection.verification_tier] ?? verificationTiers.UI_CONTRACT;
 
   return (
     <div className="rounded-md border border-border bg-secondary/30 p-3">
@@ -14,7 +15,10 @@ export default function MT5ConnectionStatus({ connection }) {
             {connection.broker} · {connection.platform}
           </div>
         </div>
-        <StatusBadge status={meta.label} color={meta.color} />
+        <div className="flex flex-col items-end gap-1">
+          <StatusBadge status={tier.label} color={tier.color} />
+          <StatusBadge status={meta.label} color={meta.color} />
+        </div>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
