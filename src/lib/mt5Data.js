@@ -87,19 +87,34 @@ export const verificationTiers = {
   MT5_E2E_CONNECTED: { label: "MT5_E2E_CONNECTED", color: "profit", desc: "FastAPI → MT5 → Vantage bewiesen (E2E-Test grün)." },
 };
 
-// E2E-Live-Test: 10 Prüfungen, die auf dem MT5-Rechner gegen die Bridge laufen müssen.
+// Verbindlicher Statusautomat (v1.2). Ein einziger Fehler → kein E2E.
+// state: verified | unknown | not_verified | failed
+export const verificationSteps = [
+  { key: "ui_contract", label: "UI Contract", state: "verified" },
+  { key: "backend_bridge", label: "Backend Bridge", state: "unknown" },
+  { key: "mt5_terminal", label: "MT5 Terminal", state: "unknown" },
+  { key: "vantage_account", label: "Vantage Account", state: "unknown" },
+  { key: "xauusd", label: "XAUUSD", state: "unknown" },
+  { key: "market_data", label: "Market Data", state: "unknown" },
+  { key: "ea_heartbeat", label: "EA Heartbeat", state: "unknown" },
+  { key: "e2e", label: "E2E", state: "not_verified" },
+];
+
+// E2E-Live-Test: 12 Prüfungen, die auf dem MT5-Rechner gegen die Bridge laufen müssen.
 // status: pending | pass | fail – default pending, weil hier keine Bridge läuft.
 export const e2eTestChecks = [
-  { key: "fastapi_reachable", label: "[1] FastAPI erreichbar", status: "pending" },
-  { key: "mt5_initialize", label: "[2] MT5 initialize()", status: "pending" },
-  { key: "mt5_terminal_info", label: "[3] MT5 terminal_info()", status: "pending" },
-  { key: "mt5_account_info", label: "[4] MT5 account_info()", status: "pending" },
-  { key: "mt5_symbol_info", label: "[5] MT5 symbol_info('XAUUSD')", status: "pending" },
-  { key: "mt5_symbol_tick", label: "[6] MT5 symbol_info_tick('XAUUSD')", status: "pending" },
-  { key: "mt5_positions", label: "[7] MT5 positions_get()", status: "pending" },
-  { key: "ea_heartbeat", label: "[8] EA Heartbeat", status: "pending" },
-  { key: "broker_server_match", label: "[9] Broker-/Servername stimmt", status: "pending" },
-  { key: "execution_blocked", label: "[10] Execution bleibt BLOCKED", status: "pending" },
+  { key: "fastapi_reachable", label: "[01] FastAPI reachable", status: "pending" },
+  { key: "mt5_initialize", label: "[02] MT5 initialize", status: "pending" },
+  { key: "terminal_info", label: "[03] terminal_info", status: "pending" },
+  { key: "account_info", label: "[04] account_info", status: "pending" },
+  { key: "server_verify", label: "[05] server verification", status: "pending" },
+  { key: "symbol_discovery", label: "[06] XAUUSD symbol discovery", status: "pending" },
+  { key: "symbol_tick", label: "[07] XAUUSD tick", status: "pending" },
+  { key: "positions_get", label: "[08] positions_get", status: "pending" },
+  { key: "orders_get", label: "[09] orders_get", status: "pending" },
+  { key: "heartbeat", label: "[10] heartbeat", status: "pending" },
+  { key: "order_check", label: "[11] order_check", status: "pending" },
+  { key: "execution_guard", label: "[12] execution guard", status: "pending" },
 ];
 
 // Default-Verbindungszustand: ehrliche Basis = UI_CONTRACT.
