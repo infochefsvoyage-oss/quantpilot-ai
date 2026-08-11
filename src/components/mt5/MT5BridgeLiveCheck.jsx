@@ -84,9 +84,11 @@ export default function MT5BridgeLiveCheck() {
       </div>
 
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Health-/Connection-Log existiert <span className="font-semibold text-loss">noch nicht</span> – keine laufende Bridge.
-        Bridge-Code &amp; Testprozedur: <span className="font-mono">quantpilot-mt5-bridge/</span> und
-        <span className="font-mono"> MT5_E2E_TEST_PROCEDURE.md</span>.
+        Statusquelle: <span className="font-mono">GET /api/v1/mt5/verification</span> – das Frontend leitet den Tier
+        ausschließlich vom Bridge-Verifikationsendpoint ab, nie aus Default-Daten. Bridge nicht erreichbar →
+        <span className="font-mono text-loss"> UI_CONTRACT</span>. Health-/Connection-Log existiert
+        <span className="font-semibold text-loss"> noch nicht</span>. Bridge-Code &amp; Testprozedur:
+        <span className="font-mono"> quantpilot-mt5-bridge/</span>.
       </p>
     </div>
   );
