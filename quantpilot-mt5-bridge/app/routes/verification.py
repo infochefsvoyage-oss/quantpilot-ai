@@ -1,12 +1,12 @@
 """GET /verification – single source of truth for the frontend tier."""
 from fastapi import APIRouter
-from .config import settings
-from .guards import heartbeat_state
-from .mt5_client import (
+from ..config import settings
+from ..guards import heartbeat_state
+from ..mt5_client import (
     terminal_info, account_info, discover_symbol, symbol_info, symbol_tick,
-    positions_get, orders_get, order_check, now_iso,
+    positions_get, order_check, now_iso,
 )
-from .schemas import VerificationResponse, BridgeError
+from ..schemas import VerificationResponse, BridgeError
 
 router = APIRouter()
 
@@ -24,20 +24,20 @@ def verification() -> VerificationResponse:
     mt5 = account = symbol = tick = positions = order_check_ok = False
     resolved = None
 
-    ti, _ = _try(terminal_info)
-    mt5 = ti is not None
-    ai, _ = _try(account_info)
-    account = ai is not None
-    disc, _ = _try(discover_symbol)
+    if _try(terminal_info)[0] is not None:
+        mt5 = True
+    if _try(account_info)[0] is not None:
+        account = True
+    disc = _try(discover_symbol)[0]
     if disc:
         resolved = disc[0]
-        si, e = _try(symbol_info, resolved)
-        symbol = si is not None and si.validated
+        if _try(symbol_info, resolved)[0] is not None:
+            si = _try(symbol_info, resolved)[0]
+            symbol = si is not None and si.validated
     if resolved:
-        tk, _ = _try(symbol_tick, resolved)
-        tick = tk is not None
-    pos, _ = _try(positions_get)
-    positions = pos is not None
+        tick = _try(symbol_tick, resolved)[0] is not None
+    if _try(positions_get)[0] is not None:
+        positions = True
     hb = heartbeat_state() == "HEALTHY"
 
     if resolved and tick:

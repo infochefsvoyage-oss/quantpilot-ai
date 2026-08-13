@@ -1,5 +1,4 @@
 """Route tests – no MT5 required (lazy import + TestClient)."""
-import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
@@ -47,4 +46,14 @@ def test_symbol_not_found_returns_structured_error():
     assert r.status_code >= 400
     body = r.json()
     assert body["ok"] is False
-    assert "stage" in body and "error_code" in body
+    assert "stage" in body and "error_code" in body and "timestamp" in body
+
+
+def test_order_check_returns_structured_when_mt5_unavailable():
+    r = client.post("/api/v1/mt5/order-check", json={
+        "signal_id": "T", "symbol": "XAUUSD", "side": "BUY", "volume": 0.01,
+        "entry": 0, "stop_loss": 0, "take_profit": 0,
+    })
+    body = r.json()
+    assert body["ok"] is False
+    assert body["stage"] != ""

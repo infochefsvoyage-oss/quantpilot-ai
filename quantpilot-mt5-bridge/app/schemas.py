@@ -23,10 +23,11 @@ ErrorCode = Literal[
 
 
 class BridgeError(Exception):
-    def __init__(self, code: ErrorCode, detail: str = "", status: int = 503):
+    def __init__(self, code: ErrorCode, detail: str = "", status: int = 503, stage: str = ""):
         self.code = code
         self.detail = detail
         self.status = status
+        self.stage = stage
         super().__init__(code)
 
 
@@ -153,3 +154,33 @@ class ValidateOrderResponse(BaseModel):
 class ExecuteResponse(BaseModel):
     execution: Literal["BLOCKED", "ALLOWED"] = "BLOCKED"
     reason: str = "LIVE_EXECUTION_DISABLED"
+
+
+class SymbolTickResponse(BaseModel):
+    symbol: str
+    bid: float = 0
+    ask: float = 0
+    last: float = 0
+    time: int = 0
+    available: bool = False
+
+
+class OrderCheckResponse(BaseModel):
+    ok: bool
+    retcode: int = 0
+    comment: str = ""
+    stage: str = "order_check"
+
+
+class VerificationResponse(BaseModel):
+    tier: VerificationTier = "UI_CONTRACT"
+    bridge: bool = False
+    mt5: bool = False
+    account: bool = False
+    symbol: bool = False
+    tick: bool = False
+    positions: bool = False
+    heartbeat: bool = False
+    order_check: bool = False
+    live_execution_blocked: bool = True
+    timestamp: str

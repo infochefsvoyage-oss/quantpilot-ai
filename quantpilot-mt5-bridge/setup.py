@@ -6,7 +6,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="quantpilot-mt5-bridge",
-    version="1.2.0",
+    version="1.3.0",
     description="QuantPilot MT5 Bridge – FastAPI read-only adapter for Vantage / MetaTrader 5",
     packages=find_packages(),
     python_requires=">=3.11",

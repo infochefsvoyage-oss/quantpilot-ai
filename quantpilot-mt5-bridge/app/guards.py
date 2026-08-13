@@ -1,6 +1,6 @@
 """Execution Guard, Heartbeat & Duplicate Guard (sections 8, 9, 11)."""
 from __future__ import annotations
-from time import time
+import time
 from typing import Optional
 from .config import settings
 from .schemas import BridgeError
@@ -11,14 +11,14 @@ _last_heartbeat: Optional[float] = None
 
 def record_heartbeat() -> None:
     global _last_heartbeat
-    _last_heartbeat = time()
+    _last_heartbeat = time.time()
 
 
 def heartbeat_state(now: Optional[float] = None) -> str:
     """< healthy_sec → HEALTHY; <= stale_sec → WARNING; > stale_sec → STALE."""
     if _last_heartbeat is None:
         return "STALE"
-    now = now or time()
+    now = now or time.time()
     age = now - _last_heartbeat
     if age < settings.heartbeat_healthy_seconds:
         return "HEALTHY"
