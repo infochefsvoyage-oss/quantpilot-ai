@@ -2,6 +2,11 @@
 Run on the MT5/Vantage machine:  python e2e_probe.py
 Only ALL required PASS -> VERDICT: MT5_E2E_CONNECTED. Else MT5_E2E_NOT_VERIFIED.
 NO live order is sent at any point (order_check only, never order_send).
+
+If the MetaTrader5 Python package is not installed (e.g. non-Windows host),
+the probe degrades gracefully: every MT5-dependent check is recorded as FAIL
+with MT5_TERMINAL_UNAVAILABLE and a structured verdict is still emitted.
+No check is ever reported PASS from default values.
 """
 from __future__ import annotations
 import os
@@ -9,12 +14,20 @@ import sys
 import time
 import json
 import requests
-import MetaTrader5 as mt5
+
+try:
+    import MetaTrader5 as mt5  # noqa: F401  (real path; Windows/MT5 host only)
+    _MT5_AVAILABLE = True
+    _MT5_IMPORT_ERROR = ""
+except Exception as e:  # ImportError or anything else
+    mt5 = None
+    _MT5_AVAILABLE = False
+    _MT5_IMPORT_ERROR = f"{type(e).__name__}: {e}"
 
 BASE = os.getenv("MT5_BRIDGE_URL", "http://127.0.0.1:8000/api/v1/mt5")
 API_KEY = os.getenv("MT5_BRIDGE_API_KEY", "")
-EXPECTED_COMPANY = os.getenv("EXPECTED_BROKER_COMPANY", "Vantage")
-EXPECTED_SERVER = os.getenv("EXPECTED_SERVER", "VantageMarkets-Live")
+EXPECTED_COMPANY = os.getenv("EXPECTED_BROKER_COMPANY", os.getenv("MT5_EXPECTED_BROKER_COMPANY", "Vantage"))
+EXPECTED_SERVER = os.getenv("EXPECTED_SERVER", os.getenv("MT5_EXPECTED_SERVER", "VantageMarkets-Live"))
 HEADERS = {"X-API-Key": API_KEY} if API_KEY else {}
 
 results: list[dict] = []
@@ -40,8 +53,18 @@ def timed(n, name, fn):
         return False
 
 
+def mt5_unavailable(n, name):
+    """Record a structured FAIL when the MetaTrader5 package is not installed."""
+    record(n, name, "FAIL", 0, "MT5_TERMINAL_UNAVAILABLE",
+          f"MetaTrader5 package not installed: {_MT5_IMPORT_ERROR}")
+    return False
+
+
 print("QUANTPILOT MT5 BRIDGE E2E PROBE (14 CHECKS)")
 print("=" * 50)
+if not _MT5_AVAILABLE:
+    print(f"WARNING: MetaTrader5 package not available -> {_MT5_IMPORT_ERROR}")
+    print("MT5-dependent checks will be recorded as FAIL (MT5_TERMINAL_UNAVAILABLE).")
 
 # [01] Bridge Health
 def c1():
@@ -54,11 +77,15 @@ if not timed(1, "Bridge Health", c1):
 
 # [02] MT5 Initialize
 def c2():
+    if not _MT5_AVAILABLE:
+        raise RuntimeError(f"MT5_TERMINAL_UNAVAILABLE: {_MT5_IMPORT_ERROR}")
     assert mt5.initialize(), str(mt5.last_error())
 timed(2, "MT5 Initialize", c2)
 
 # [03] Terminal erreichbar
 def c3():
+    if not _MT5_AVAILABLE:
+        raise RuntimeError(f"MT5_TERMINAL_UNAVAILABLE: {_MT5_IMPORT_ERROR}")
     assert mt5.terminal_info() is not None, str(mt5.last_error())
 timed(3, "Terminal erreichbar", c3)
 
@@ -66,12 +93,16 @@ timed(3, "Terminal erreichbar", c3)
 ai = None
 def c4():
     global ai
+    if not _MT5_AVAILABLE:
+        raise RuntimeError(f"MT5_TERMINAL_UNAVAILABLE: {_MT5_IMPORT_ERROR}")
     ai = mt5.account_info()
     assert ai is not None, str(mt5.last_error())
 timed(4, "Account erkannt", c4)
 
 # [05] Server erkannt
 def c5():
+    if not _MT5_AVAILABLE:
+        raise RuntimeError(f"MT5_TERMINAL_UNAVAILABLE: {_MT5_IMPORT_ERROR}")
     assert ai is not None and ai.server == EXPECTED_SERVER, f"server={getattr(ai,'server','?')}"
     ti = mt5.terminal_info()
     assert ti is not None and ti.company == EXPECTED_COMPANY, f"company={getattr(ti,'company','?')}"
@@ -79,16 +110,22 @@ timed(5, "Server erkannt", c5)
 
 # [06] Balance
 def c6():
+    if not _MT5_AVAILABLE:
+        raise RuntimeError(f"MT5_TERMINAL_UNAVAILABLE: {_MT5_IMPORT_ERROR}")
     assert ai is not None and ai.balance is not None
 timed(6, "Balance", c6)
 
 # [07] Equity
 def c7():
+    if not _MT5_AVAILABLE:
+        raise RuntimeError(f"MT5_TERMINAL_UNAVAILABLE: {_MT5_IMPORT_ERROR}")
     assert ai is not None and ai.equity is not None
 timed(7, "Equity", c7)
 
 # [08] Free Margin
 def c8():
+    if not _MT5_AVAILABLE:
+        raise RuntimeError(f"MT5_TERMINAL_UNAVAILABLE: {_MT5_IMPORT_ERROR}")
     assert ai is not None and ai.margin_free is not None
 timed(8, "Free Margin", c8)
 
@@ -96,6 +133,8 @@ timed(8, "Free Margin", c8)
 resolved = None
 def c9():
     global resolved
+    if not _MT5_AVAILABLE:
+        raise RuntimeError(f"MT5_TERMINAL_UNAVAILABLE: {_MT5_IMPORT_ERROR}")
     candidates = ["XAUUSD", "XAUUSD.a", "XAUUSD.m", "GOLD", "XAU"]
     resolved = next((c for c in candidates if mt5.symbol_info(c) is not None), None)
     assert resolved, "no candidate found"
@@ -105,17 +144,23 @@ timed(9, "XAUUSD Symbol Discovery", c9)
 tick = None
 def c10():
     global tick
+    if not _MT5_AVAILABLE:
+        raise RuntimeError(f"MT5_TERMINAL_UNAVAILABLE: {_MT5_IMPORT_ERROR}")
     tick = mt5.symbol_info_tick(resolved)
     assert tick is not None, "tick None"
 timed(10, "Tick", c10)
 
 # [11] Positions
 def c11():
+    if not _MT5_AVAILABLE:
+        raise RuntimeError(f"MT5_TERMINAL_UNAVAILABLE: {_MT5_IMPORT_ERROR}")
     assert mt5.positions_get() is not None
 timed(11, "Positions", c11)
 
 # [12] Orders
 def c12():
+    if not _MT5_AVAILABLE:
+        raise RuntimeError(f"MT5_TERMINAL_UNAVAILABLE: {_MT5_IMPORT_ERROR}")
     assert mt5.orders_get() is not None
 timed(12, "Orders", c12)
 
@@ -130,6 +175,8 @@ timed(13, "Heartbeat", c13)
 
 # [14] order_check (NO order sent)
 def c14():
+    if not _MT5_AVAILABLE:
+        raise RuntimeError(f"MT5_TERMINAL_UNAVAILABLE: {_MT5_IMPORT_ERROR}")
     req = {
         "action": mt5.TRADE_ACTION_PENDING, "symbol": resolved, "volume": 0.01,
         "type": mt5.ORDER_TYPE_BUY, "price": tick.ask if tick else 0,
@@ -139,7 +186,11 @@ def c14():
     assert mt5.order_check(req) is not None, "order_check None"
 timed(14, "order_check", c14)
 
-mt5.shutdown()
+if _MT5_AVAILABLE:
+    try:
+        mt5.shutdown()
+    except Exception:
+        pass
 
 # Execution guard verification: /orders/execute MUST stay BLOCKED
 try:
@@ -147,7 +198,7 @@ try:
     exec_blocked = ex.get("execution") == "BLOCKED"
 except Exception:
     exec_blocked = False
-print(f"\nORDER_CHECK = moeglich (real mt5.order_check)")
+print(f"\nORDER_CHECK = {'moeglich (real mt5.order_check)' if _MT5_AVAILABLE else 'NICHT MOEGLICH (MetaTrader5 nicht installiert)'}")
 print(f"ORDER_SEND  = {'BLOCKED' if exec_blocked else 'NOT BLOCKED !!!'}")
 print(f"LIVE EXECUTION = BLOCKED")
 
