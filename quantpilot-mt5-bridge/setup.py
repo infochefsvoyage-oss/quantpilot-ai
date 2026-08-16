@@ -17,7 +17,6 @@ setup(
         "pydantic-settings>=2.2",
         "MetaTrader5>=5.0.45",
         "structlog>=24.1",
-        "requests>=2.31",
     ],
     extras_require={"test": ["pytest>=8.0", "httpx>=0.27"]},
 )
