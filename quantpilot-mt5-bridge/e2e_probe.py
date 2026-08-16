@@ -13,7 +13,22 @@ import os
 import sys
 import time
 import json
-import requests
+import urllib.request
+import urllib.error
+
+def _http(method, url, body=None, headers=None, timeout=5):
+    """stdlib HTTP helper (no external 'requests' dependency)."""
+    data = None
+    h = dict(headers or {})
+    if body is not None:
+        data = json.dumps(body).encode("utf-8")
+        h.setdefault("Content-Type", "application/json")
+    req = urllib.request.Request(url, data=data, headers=h, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.status, resp.read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8")
 
 try:
     import MetaTrader5 as mt5  # noqa: F401  (real path; Windows/MT5 host only)
@@ -68,7 +83,9 @@ if not _MT5_AVAILABLE:
 
 # [01] Bridge Health
 def c1():
-    h = requests.get(f"{BASE}/health", headers=HEADERS, timeout=5).json()
+    status, body = _http("GET", f"{BASE}/health", headers=HEADERS, timeout=5)
+    assert status == 200, f"HTTP {status}"
+    h = json.loads(body)
     assert "bridge" in h or "status" in h, str(h)
 if not timed(1, "Bridge Health", c1):
     print("\nVERDICT: MT5_E2E_NOT_VERIFIED (FastAPI not reachable)")
@@ -166,10 +183,12 @@ timed(12, "Orders", c12)
 
 # [13] Heartbeat
 def c13():
-    hb = requests.post(f"{BASE}/heartbeat", headers=HEADERS, json={
+    status, body = _http("POST", f"{BASE}/heartbeat", headers=HEADERS, body={
         "ea_id": "QUANTPILOT_MT5_EA", "version": "1.0.0", "account": "********",
         "symbols": ["XAUUSD"], "timestamp": str(time.time()),
-    }, timeout=5).json()
+    }, timeout=5)
+    assert status == 200, f"HTTP {status}"
+    hb = json.loads(body)
     assert hb.get("state") == "HEALTHY", str(hb)
 timed(13, "Heartbeat", c13)
 
@@ -194,8 +213,9 @@ if _MT5_AVAILABLE:
 
 # Execution guard verification: /orders/execute MUST stay BLOCKED
 try:
-    ex = requests.post(f"{BASE}/orders/execute", headers=HEADERS, json={}, timeout=5).json()
-    exec_blocked = ex.get("execution") == "BLOCKED"
+    status, body = _http("POST", f"{BASE}/orders/execute", headers=HEADERS, body={}, timeout=5)
+    ex = json.loads(body)
+    exec_blocked = (status == 200) and ex.get("execution") == "BLOCKED"
 except Exception:
     exec_blocked = False
 print(f"\nORDER_CHECK = {'moeglich (real mt5.order_check)' if _MT5_AVAILABLE else 'NICHT MOEGLICH (MetaTrader5 nicht installiert)'}")

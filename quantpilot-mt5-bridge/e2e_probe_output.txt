@@ -1,0 +1,152 @@
+QUANTPILOT MT5 BRIDGE E2E PROBE (14 CHECKS)
+==================================================
+WARNING: MetaTrader5 package not available -> ModuleNotFoundError: No module named 'MetaTrader5'
+MT5-dependent checks will be recorded as FAIL (MT5_TERMINAL_UNAVAILABLE).
+[PASS] 01 Bridge Health (8ms)
+[FAIL] 02 MT5 Initialize (0ms) RuntimeError MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'
+[FAIL] 03 Terminal erreichbar (0ms) RuntimeError MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'
+[FAIL] 04 Account erkannt (0ms) RuntimeError MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'
+[FAIL] 05 Server erkannt (0ms) RuntimeError MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'
+[FAIL] 06 Balance (0ms) RuntimeError MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'
+[FAIL] 07 Equity (0ms) RuntimeError MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'
+[FAIL] 08 Free Margin (0ms) RuntimeError MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'
+[FAIL] 09 XAUUSD Symbol Discovery (0ms) RuntimeError MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'
+[FAIL] 10 Tick (0ms) RuntimeError MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'
+[FAIL] 11 Positions (0ms) RuntimeError MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'
+[FAIL] 12 Orders (0ms) RuntimeError MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'
+[PASS] 13 Heartbeat (10ms)
+[FAIL] 14 order_check (0ms) RuntimeError MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'
+
+ORDER_CHECK = NICHT MOEGLICH (MetaTrader5 nicht installiert)
+ORDER_SEND  = BLOCKED
+LIVE EXECUTION = BLOCKED
+
+VERDICT: MT5_E2E_NOT_VERIFIED
+[
+  {
+    "check": 1,
+    "name": "Bridge Health",
+    "status": "PASS",
+    "duration_ms": 8,
+    "error_code": "",
+    "error_message": "",
+    "timestamp": "2026-08-16T10:27:28Z"
+  },
+  {
+    "check": 2,
+    "name": "MT5 Initialize",
+    "status": "FAIL",
+    "duration_ms": 0,
+    "error_code": "RuntimeError",
+    "error_message": "MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'",
+    "timestamp": "2026-08-16T10:27:28Z"
+  },
+  {
+    "check": 3,
+    "name": "Terminal erreichbar",
+    "status": "FAIL",
+    "duration_ms": 0,
+    "error_code": "RuntimeError",
+    "error_message": "MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'",
+    "timestamp": "2026-08-16T10:27:28Z"
+  },
+  {
+    "check": 4,
+    "name": "Account erkannt",
+    "status": "FAIL",
+    "duration_ms": 0,
+    "error_code": "RuntimeError",
+    "error_message": "MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'",
+    "timestamp": "2026-08-16T10:27:28Z"
+  },
+  {
+    "check": 5,
+    "name": "Server erkannt",
+    "status": "FAIL",
+    "duration_ms": 0,
+    "error_code": "RuntimeError",
+    "error_message": "MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'",
+    "timestamp": "2026-08-16T10:27:28Z"
+  },
+  {
+    "check": 6,
+    "name": "Balance",
+    "status": "FAIL",
+    "duration_ms": 0,
+    "error_code": "RuntimeError",
+    "error_message": "MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'",
+    "timestamp": "2026-08-16T10:27:28Z"
+  },
+  {
+    "check": 7,
+    "name": "Equity",
+    "status": "FAIL",
+    "duration_ms": 0,
+    "error_code": "RuntimeError",
+    "error_message": "MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'",
+    "timestamp": "2026-08-16T10:27:28Z"
+  },
+  {
+    "check": 8,
+    "name": "Free Margin",
+    "status": "FAIL",
+    "duration_ms": 0,
+    "error_code": "RuntimeError",
+    "error_message": "MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'",
+    "timestamp": "2026-08-16T10:27:28Z"
+  },
+  {
+    "check": 9,
+    "name": "XAUUSD Symbol Discovery",
+    "status": "FAIL",
+    "duration_ms": 0,
+    "error_code": "RuntimeError",
+    "error_message": "MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'",
+    "timestamp": "2026-08-16T10:27:28Z"
+  },
+  {
+    "check": 10,
+    "name": "Tick",
+    "status": "FAIL",
+    "duration_ms": 0,
+    "error_code": "RuntimeError",
+    "error_message": "MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'",
+    "timestamp": "2026-08-16T10:27:28Z"
+  },
+  {
+    "check": 11,
+    "name": "Positions",
+    "status": "FAIL",
+    "duration_ms": 0,
+    "error_code": "RuntimeError",
+    "error_message": "MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'",
+    "timestamp": "2026-08-16T10:27:28Z"
+  },
+  {
+    "check": 12,
+    "name": "Orders",
+    "status": "FAIL",
+    "duration_ms": 0,
+    "error_code": "RuntimeError",
+    "error_message": "MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'",
+    "timestamp": "2026-08-16T10:27:28Z"
+  },
+  {
+    "check": 13,
+    "name": "Heartbeat",
+    "status": "PASS",
+    "duration_ms": 10,
+    "error_code": "",
+    "error_message": "",
+    "timestamp": "2026-08-16T10:27:28Z"
+  },
+  {
+    "check": 14,
+    "name": "order_check",
+    "status": "FAIL",
+    "duration_ms": 0,
+    "error_code": "RuntimeError",
+    "error_message": "MT5_TERMINAL_UNAVAILABLE: ModuleNotFoundError: No module named 'MetaTrader5'",
+    "timestamp": "2026-08-16T10:27:28Z"
+  }
+]
