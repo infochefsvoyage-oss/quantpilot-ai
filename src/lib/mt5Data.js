@@ -100,21 +100,24 @@ export const verificationSteps = [
   { key: "e2e", label: "E2E", state: "not_verified" },
 ];
 
-// E2E-Live-Test: 12 Prüfungen, die auf dem MT5-Rechner gegen die Bridge laufen müssen.
-// status: pending | pass | fail – default pending, weil hier keine Bridge läuft.
+// E2E-Live-Test: 14 Prüfungen (identisch zu quantpilot-mt5-bridge/e2e_probe.py).
+// status: pending | pass | fail – default pending. Echte Werte liefert nur der
+// Probe-Lauf auf dem Windows/MT5-Rechner. Keine Default-PASS-Werte.
 export const e2eTestChecks = [
-  { key: "fastapi_reachable", label: "[01] FastAPI reachable", status: "pending" },
-  { key: "mt5_initialize", label: "[02] MT5 initialize", status: "pending" },
-  { key: "terminal_info", label: "[03] terminal_info", status: "pending" },
-  { key: "account_info", label: "[04] account_info", status: "pending" },
-  { key: "server_verify", label: "[05] server verification", status: "pending" },
-  { key: "symbol_discovery", label: "[06] XAUUSD symbol discovery", status: "pending" },
-  { key: "symbol_tick", label: "[07] XAUUSD tick", status: "pending" },
-  { key: "positions_get", label: "[08] positions_get", status: "pending" },
-  { key: "orders_get", label: "[09] orders_get", status: "pending" },
-  { key: "heartbeat", label: "[10] heartbeat", status: "pending" },
-  { key: "order_check", label: "[11] order_check", status: "pending" },
-  { key: "execution_guard", label: "[12] execution guard", status: "pending" },
+  { key: "bridge_health", label: "[01] Bridge Health", status: "pending" },
+  { key: "mt5_initialize", label: "[02] MT5 Initialize", status: "pending" },
+  { key: "terminal_info", label: "[03] Terminal erreichbar", status: "pending" },
+  { key: "account_info", label: "[04] Account erkannt", status: "pending" },
+  { key: "server_verify", label: "[05] Server erkannt", status: "pending" },
+  { key: "balance", label: "[06] Balance", status: "pending" },
+  { key: "equity", label: "[07] Equity", status: "pending" },
+  { key: "free_margin", label: "[08] Free Margin", status: "pending" },
+  { key: "symbol_discovery", label: "[09] XAUUSD Symbol Discovery", status: "pending" },
+  { key: "symbol_tick", label: "[10] Tick", status: "pending" },
+  { key: "positions_get", label: "[11] Positions", status: "pending" },
+  { key: "orders_get", label: "[12] Orders", status: "pending" },
+  { key: "heartbeat", label: "[13] Heartbeat", status: "pending" },
+  { key: "order_check", label: "[14] order_check", status: "pending" },
 ];
 
 // Default-Verbindungszustand: ehrliche Basis = UI_CONTRACT.
