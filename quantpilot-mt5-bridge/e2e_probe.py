@@ -42,7 +42,22 @@ except Exception as e:  # ImportError or anything else
 BASE = os.getenv("MT5_BRIDGE_URL", "http://127.0.0.1:8000/api/v1/mt5")
 API_KEY = os.getenv("MT5_BRIDGE_API_KEY", "")
 EXPECTED_COMPANY = os.getenv("EXPECTED_BROKER_COMPANY", os.getenv("MT5_EXPECTED_BROKER_COMPANY", "Vantage"))
-EXPECTED_SERVER = os.getenv("EXPECTED_SERVER", os.getenv("MT5_EXPECTED_SERVER", "VantageMarkets-Live"))
+# Server-Allowlist statt striktem Single-Default. Vantage nutzt je nach Account/Region
+# unterschiedliche Servernamen (VantageMarkets-Live, VantageInternational-Live, ...);
+# ein fester Default wie "VantageMarkets-Live" schlug auf realen Accounts unnötig fehl.
+_DEFAULT_ALLOWED_SERVERS = (
+    "VantageMarkets-Live,VantageMarkets-Demo,"
+    "VantageInternational-Live,VantageInternational-Demo,"
+    "VantageGlobal-Live,VantageGlobal-Demo"
+)
+_allowed_env = os.getenv("MT5_ALLOWED_SERVERS", "")
+_legacy_expected_server = os.getenv("EXPECTED_SERVER", os.getenv("MT5_EXPECTED_SERVER", ""))
+if _allowed_env:
+    ALLOWED_SERVERS = {s.strip() for s in _allowed_env.split(",") if s.strip()}
+else:
+    ALLOWED_SERVERS = {s.strip() for s in _DEFAULT_ALLOWED_SERVERS.split(",") if s.strip()}
+    if _legacy_expected_server:
+        ALLOWED_SERVERS.add(_legacy_expected_server.strip())
 HEADERS = {"X-API-Key": API_KEY} if API_KEY else {}
 
 results: list[dict] = []
@@ -116,13 +131,19 @@ def c4():
     assert ai is not None, str(mt5.last_error())
 timed(4, "Account erkannt", c4)
 
-# [05] Server erkannt
+# [05] Server erkannt (Allowlist-basiert, company als Case-insensitive Contains)
 def c5():
     if not _MT5_AVAILABLE:
         raise RuntimeError(f"MT5_TERMINAL_UNAVAILABLE: {_MT5_IMPORT_ERROR}")
-    assert ai is not None and ai.server == EXPECTED_SERVER, f"server={getattr(ai,'server','?')}"
+    assert ai is not None, "account_info None"
+    assert ai.server in ALLOWED_SERVERS, (
+        f"server='{ai.server}' not in allowlist {sorted(ALLOWED_SERVERS)}"
+    )
     ti = mt5.terminal_info()
-    assert ti is not None and ti.company == EXPECTED_COMPANY, f"company={getattr(ti,'company','?')}"
+    assert ti is not None, "terminal_info None"
+    assert EXPECTED_COMPANY.lower() in (ti.company or "").lower(), (
+        f"company='{ti.company}' does not contain '{EXPECTED_COMPANY}'"
+    )
 timed(5, "Server erkannt", c5)
 
 # [06] Balance
@@ -221,6 +242,28 @@ except Exception:
 print(f"\nORDER_CHECK = {'moeglich (real mt5.order_check)' if _MT5_AVAILABLE else 'NICHT MOEGLICH (MetaTrader5 nicht installiert)'}")
 print(f"ORDER_SEND  = {'BLOCKED' if exec_blocked else 'NOT BLOCKED !!!'}")
 print(f"LIVE EXECUTION = BLOCKED")
+
+# --- Sanitized diagnostic block (keine Secrets, Login maskiert) ---
+diag = {}
+if _MT5_AVAILABLE and ai is not None:
+    _login = str(getattr(ai, "login", ""))
+    diag["LOGIN"] = ("****" + _login[-4:]) if len(_login) >= 4 else "****"
+    diag["SERVER"] = getattr(ai, "server", "?")
+    diag["TRADE_ALLOWED"] = bool(getattr(ai, "trade_allowed", False))
+else:
+    diag["LOGIN"] = "****"
+    diag["SERVER"] = "n/a"
+    diag["TRADE_ALLOWED"] = "n/a"
+if _MT5_AVAILABLE:
+    _ti = mt5.terminal_info() if ai is not None else None
+    diag["BROKER_COMPANY"] = getattr(_ti, "company", "?") if _ti else "?"
+else:
+    diag["BROKER_COMPANY"] = "n/a"
+diag["SYMBOL"] = resolved or "n/a"
+diag["TICK"] = "PASS" if tick else "FAIL"
+print("\n--- DIAGNOSTIC (sanitized) ---")
+for _k in ["BROKER_COMPANY", "SERVER", "LOGIN", "TRADE_ALLOWED", "SYMBOL", "TICK"]:
+    print(f"{_k}: {diag.get(_k, 'n/a')}")
 
 all_pass = all(r["status"] == "PASS" for r in results) and exec_blocked
 print("\nVERDICT:", "MT5_E2E_CONNECTED" if all_pass else "MT5_E2E_NOT_VERIFIED")
