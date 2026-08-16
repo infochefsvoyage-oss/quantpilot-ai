@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Lock, ShieldAlert, Bot, Server } from "lucide-react";
+import { base44 } from "@/api/base44Client";
 import PanelCard from "@/components/PanelCard";
 import StatusBadge from "@/components/StatusBadge";
 import { defaultMT5Connection, defaultGateState, isLiveBlocked } from "@/lib/mt5Data";
@@ -11,7 +12,21 @@ import MT5ReadOnlyTest from "./MT5ReadOnlyTest";
 import MT5BridgeLiveCheck from "./MT5BridgeLiveCheck";
 
 export default function MetaTraderPanel({ className = "" }) {
-  const connection = defaultMT5Connection;
+  const [connection, setConnection] = useState(defaultMT5Connection);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    base44.entities.MT5Connection.list("-updated_date", 1)
+      .then((rows) => {
+        if (!mounted) return;
+        if (rows && rows.length > 0) setConnection(rows[0]);
+      })
+      .catch(() => {})
+      .finally(() => mounted && setLoading(false));
+    return () => { mounted = false; };
+  }, []);
+
   const gates = defaultGateState;
   const liveBlocked = isLiveBlocked(connection);
 
@@ -46,7 +61,7 @@ export default function MetaTraderPanel({ className = "" }) {
 
         {/* Live-Verbindungs-Realität */}
         <div className="mb-3">
-          <MT5BridgeLiveCheck />
+          <MT5BridgeLiveCheck connection={connection} loading={loading} />
         </div>
 
         {/* Status + EA */}
@@ -105,7 +120,8 @@ export default function MetaTraderPanel({ className = "" }) {
         </div>
 
         <p className="mt-3 text-[11px] text-muted-foreground">
-          Platzhalter-Status – wartet auf FastAPI/MT5-Bridge. Keine Mock-Daten als Live-Daten.
+          Statusquelle: <span className="font-mono">MT5Connection</span>-Entity (DB). Keine Bridge angebunden → Fallback
+          <span className="font-mono text-loss"> UI_CONTRACT</span>. Live bleibt BLOCKED.
         </p>
       </PanelCard>
     </div>

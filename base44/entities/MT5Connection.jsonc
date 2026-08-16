@@ -54,6 +54,15 @@
       ],
       "default": "DISCONNECTED"
     },
+    "verification_tier": {
+      "type": "string",
+      "enum": [
+        "UI_CONTRACT",
+        "BACKEND_CONNECTED",
+        "MT5_E2E_CONNECTED"
+      ],
+      "default": "UI_CONTRACT"
+    },
     "execution_mode": {
       "type": "string",
       "enum": [
