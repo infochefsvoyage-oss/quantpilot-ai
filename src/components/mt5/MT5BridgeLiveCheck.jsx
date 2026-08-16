@@ -113,7 +113,7 @@ export default function MT5BridgeLiveCheck({ connection, loading = false }) {
       {/* E2E-Test-Checkliste (12) */}
       <div className="mt-2 rounded-md border border-border bg-background/40 p-3">
         <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          E2E-Live-Test (12 Prüfungen – auf MT5-Rechner auszuführen)
+          E2E-Live-Test (14 Prüfungen – auf MT5-Rechner auszuführen)
         </div>
         <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
           {e2eTestChecks.map((c) => (

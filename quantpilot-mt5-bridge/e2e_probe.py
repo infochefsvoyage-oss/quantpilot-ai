@@ -265,6 +265,25 @@ print("\n--- DIAGNOSTIC (sanitized) ---")
 for _k in ["BROKER_COMPANY", "SERVER", "LOGIN", "TRADE_ALLOWED", "SYMBOL", "TICK"]:
     print(f"{_k}: {diag.get(_k, 'n/a')}")
 
-all_pass = all(r["status"] == "PASS" for r in results) and exec_blocked
-print("\nVERDICT:", "MT5_E2E_CONNECTED" if all_pass else "MT5_E2E_NOT_VERIFIED")
+passed = sum(1 for r in results if r["status"] == "PASS")
+failed = sum(1 for r in results if r["status"] == "FAIL")
+order_check_status = next((r["status"] for r in results if r["check"] == 14), "FAIL")
+verdict = "MT5_E2E_CONNECTED" if (passed == 14 and failed == 0 and exec_blocked) else "MT5_E2E_NOT_VERIFIED"
+
+# --- Final structured block (eindeutig, maschinenlesbar, KEINE Secrets) ---
+print("\n" + "=" * 30)
+print("MT5 E2E FINAL RESULT")
+print("=" * 30)
+print(f"PASSED: {passed}/14")
+print(f"FAILED: {failed}/14")
+print(f"ORDER_CHECK: {order_check_status}")
+print(f"ORDER_SEND: {'BLOCKED' if exec_blocked else 'NOT BLOCKED !!!'}")
+print(f"LIVE_EXECUTION: BLOCKED")
+print(f"BROKER_COMPANY: {diag.get('BROKER_COMPANY', 'n/a')}")
+print(f"SERVER: {diag.get('SERVER', 'n/a')}")
+print(f"SYMBOL: {diag.get('SYMBOL', 'n/a')}")
+print(f"VERDICT: {verdict}")
+print("=" * 30)
+
+print("\nVERDICT:", verdict)
 print(json.dumps(results, indent=2, default=str))
