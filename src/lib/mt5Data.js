@@ -3,6 +3,9 @@
 // Architektur:
 //   Vantage (Broker) → MetaTrader 5 (Platform) → EA (Execution Adapter) → QuantPilot (Strategy/Risk/Governance)
 //
+// Single Source of Truth für E2E-Checks und Verification-Tiers:
+//   src/lib/mt5VerificationContract.js (14 Checks – kanonisch, identisch zu e2e_probe.py)
+//
 // WICHTIG: MT5 ist KEINE Exchange. Diese Schicht trennt Broker, Plattform,
 // Execution-Adapter und Strategie sauber. Alle Live-Pfade sind per Default BLOCKED.
 //
@@ -100,25 +103,11 @@ export const verificationSteps = [
   { key: "e2e", label: "E2E", state: "not_verified" },
 ];
 
-// E2E-Live-Test: 14 Prüfungen (identisch zu quantpilot-mt5-bridge/e2e_probe.py).
-// status: pending | pass | fail – default pending. Echte Werte liefert nur der
-// Probe-Lauf auf dem Windows/MT5-Rechner. Keine Default-PASS-Werte.
-export const e2eTestChecks = [
-  { key: "bridge_health", label: "[01] Bridge Health", status: "pending" },
-  { key: "mt5_initialize", label: "[02] MT5 Initialize", status: "pending" },
-  { key: "terminal_info", label: "[03] Terminal erreichbar", status: "pending" },
-  { key: "account_info", label: "[04] Account erkannt", status: "pending" },
-  { key: "server_verify", label: "[05] Server erkannt", status: "pending" },
-  { key: "balance", label: "[06] Balance", status: "pending" },
-  { key: "equity", label: "[07] Equity", status: "pending" },
-  { key: "free_margin", label: "[08] Free Margin", status: "pending" },
-  { key: "symbol_discovery", label: "[09] XAUUSD Symbol Discovery", status: "pending" },
-  { key: "symbol_tick", label: "[10] Tick", status: "pending" },
-  { key: "positions_get", label: "[11] Positions", status: "pending" },
-  { key: "orders_get", label: "[12] Orders", status: "pending" },
-  { key: "heartbeat", label: "[13] Heartbeat", status: "pending" },
-  { key: "order_check", label: "[14] order_check", status: "pending" },
-];
+// E2E-Live-Test: 14 Prüfungen – kanonisch aus src/lib/mt5VerificationContract.js
+// (identisch zu quantpilot-mt5-bridge/e2e_probe.py). Keine Default-PASS-Werte.
+import { E2E_CHECKS, E2E_CHECK_COUNT } from "@/lib/mt5VerificationContract";
+export const e2eTestChecks = E2E_CHECKS;
+export const e2eCheckCount = E2E_CHECK_COUNT;
 
 // Default-Verbindungszustand: ehrliche Basis = UI_CONTRACT.
 // Kein DATA_ONLY/CONNECTED vorgetäuschen, solange keine Bridge antwortet.

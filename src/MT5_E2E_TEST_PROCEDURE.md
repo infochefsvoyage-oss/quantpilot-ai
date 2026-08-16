@@ -1,8 +1,9 @@
 # QuantPilot MT5 Bridge – E2E-Live-Test-Prozedur
 
-**Stand:** 2026-08-11
+**Stand:** 2026-08-16 (reconciled mit e2e_probe.py – 14 Checks)
 **Ziel:** Beweisen, dass die Kette `QuantPilot → FastAPI → MetaTrader5 Python API → laufendes MT5-Terminal → VantageMarkets-Live` tatsächlich antwortet.
 **Ausführungsort:** Auf dem Rechner, auf dem MT5/Vantage läuft. **Nicht** in der Base44-App.
+**Kanonischer Contract:** `src/lib/mt5VerificationContract.js` (14 Checks – Single Source of Truth).
 
 ---
 
@@ -19,104 +20,86 @@
 |------|----------|----------|
 | `UI_CONTRACT` | Nur Vertrag/UI, keine Bridge, kein Terminal | rot |
 | `BACKEND_CONNECTED` | FastAPI erreichbar, MT5-Terminal nicht bewiesen | gelb |
-| `MT5_E2E_CONNECTED` | FastAPI → MT5 → Vantage bewiesen (alle 10 Checks pass) | grün |
+| `MT5_E2E_CONNECTED` | FastAPI → MT5 → Vantage bewiesen (alle 14 Checks PASS) | grün |
 
 **Nur `MT5_E2E_CONNECTED` darf als echte Verbindung gelten.**
-Aktuell ist die App verbindungslos bei `UI_CONTRACT`.
+Ein persistierter Frontend-Datensatz (MT5Connection-Entity) ist **kein** E2E-Beweis.
+Aktuell ist die App verbindungslos bei `BACKEND_CONNECTED` (Bridge antwortet, MT5 nicht bewiesen).
 
 ---
 
-## 2. Die 10 E2E-Prüfungen
+## 2. Die 14 E2E-Prüfungen (kanonisch – identisch zu `e2e_probe.py`)
 | # | Check | MT5-Aufruf |
 |---|-------|-----------|
-| 1 | FastAPI erreichbar | `GET /api/v1/mt5/health` |
-| 2 | MT5 initialize | `mt5.initialize()` |
-| 3 | Terminal-Info | `mt5.terminal_info()` |
-| 4 | Account-Info | `mt5.account_info()` |
-| 5 | Symbol-Info | `mt5.symbol_info("XAUUSD")` |
-| 6 | Symbol-Tick | `mt5.symbol_info_tick("XAUUSD")` |
-| 7 | Positionen | `mt5.positions_get()` |
-| 8 | EA Heartbeat | `POST /api/v1/mt5/heartbeat` (< 10s) |
-| 9 | Broker-/Servername stimmt | `terminal_info.company == "Vantage"` / `account_info.server == "VantageMarkets-Live"` |
-| 10 | Execution bleibt BLOCKED | `POST /api/v1/mt5/orders/execute` → `BLOCKED` |
+| 01 | Bridge Health | `GET /api/v1/mt5/health` |
+| 02 | MT5 Initialize | `mt5.initialize()` |
+| 03 | Terminal erreichbar | `mt5.terminal_info()` |
+| 04 | Account erkannt | `mt5.account_info()` |
+| 05 | Server erkannt | `account_info.server` (Allowlist) |
+| 06 | Balance | `account_info.balance` |
+| 07 | Equity | `account_info.equity` |
+| 08 | Free Margin | `account_info.margin_free` |
+| 09 | XAUUSD Symbol Discovery | `mt5.symbol_info()` |
+| 10 | Tick | `mt5.symbol_info_tick()` |
+| 11 | Positions | `mt5.positions_get()` |
+| 12 | Orders | `mt5.orders_get()` |
+| 13 | Heartbeat | `POST /api/v1/mt5/heartbeat` (HEALTHY) |
+| 14 | order_check | `mt5.order_check()` (keine Order!) |
 
-Besonders beweiskräftig: **4, 5, 6** (`account_info`, `symbol_info`, `symbol_info_tick`) – nur diese zeigen, dass MT5 → Vantage wirklich funktioniert.
+Besonders beweiskräftig: **04, 09, 10** (`account_info`, `symbol_info`, `symbol_info_tick`) – nur diese zeigen, dass MT5 → Vantage wirklich funktioniert.
+**Check 14 (`order_check`) ist KEIN ausgeführter Trade** – es ist eine Pre-Trade-Validierung. `order_send()` wird nie ausgeführt.
 
 ---
 
 ## 3. Test-Skript (extern auszuführen)
-```python
-# e2e_probe.py – auf dem MT5-Rechner ausführen
-import os, json, requests, MetaTrader5 as mt5, time
-
-BASE = os.getenv("MT5_BRIDGE_URL", "http://127.0.0.1:8000/api/v1/mt5")
-EXPECTED_SERVER = "VantageMarkets-Live"
-EXPECTED_COMPANY = "Vantage"
-
-results = []
-def check(num, name, ok, detail=""):
-    results.append({"n": num, "name": name, "pass": bool(ok), "detail": detail})
-    print(f"[{'PASS' if ok else 'FAIL'}] {num} {name} {detail}")
-
-# [1] FastAPI
-try:
-    h = requests.get(f"{BASE}/health", timeout=5).json()
-    check(1, "FastAPI erreichbar", h.get("status") == "ok", h)
-except Exception as e:
-    check(1, "FastAPI erreichbar", False, str(e)); raise SystemExit
-
-# [2] MT5 initialize
-check(2, "MT5 initialize()", mt5.initialize())
-# [3] terminal_info
-ti = mt5.terminal_info(); check(3, "MT5 terminal_info()", ti is not None)
-# [4] account_info
-ai = mt5.account_info(); check(4, "MT5 account_info()", ai is not None, str(ai) if ai else "")
-# [5] symbol_info
-si = mt5.symbol_info("XAUUSD"); check(5, "MT5 symbol_info('XAUUSD')", si is not None)
-# [6] symbol_info_tick
-tk = mt5.symbol_info_tick("XAUUSD"); check(6, "MT5 symbol_info_tick('XAUUSD')", tk is not None)
-# [7] positions_get
-pos = mt5.positions_get(); check(7, "MT5 positions_get()", pos is not None, f"count={len(pos) if pos else 0}")
-# [8] EA heartbeat
-hb = requests.post(f"{BASE}/heartbeat", json={"ea_id":"QUANTPILOT_MT5_EA","version":"1.0.0","account":"33882479","symbols":["XAUUSD"],"timestamp":time.time()}).json()
-check(8, "EA Heartbeat", hb.get("state") == "HEALTHY")
-# [9] Broker/Server
-check(9, "Broker/Servername stimmt",
-      ti and ti.company == EXPECTED_COMPANY and ai and ai.server == EXPECTED_SERVER,
-      f"{getattr(ti,'company','?')} / {getattr(ai,'server','?')}")
-# [10] Execution BLOCKED
-ex = requests.post(f"{BASE}/orders/execute", json={"signal_id":"E2E_PROBE","symbol":"XAUUSD","side":"BUY","volume":0.01}).json()
-check(10, "Execution bleibt BLOCKED", ex.get("execution") == "BLOCKED", ex)
-
-mt5.shutdown()
-all_pass = all(r["pass"] for r in results)
-print("\nVERDICT:", "MT5_E2E_CONNECTED" if all_pass else "NOT_E2E")
-print(json.dumps(results, indent=2, default=str))
+Das kanonische Probe-Skript ist `quantpilot-mt5-bridge/e2e_probe.py` (14 Checks).
+**Nicht** hier duplizieren – stattdessen auf dem MT5-Rechner ausführen:
+```bash
+cd quantpilot-mt5-bridge
+python e2e_probe.py
 ```
+Das Skript verwendet stdlib `urllib` (kein `requests`-Dependency) und degradiert
+gracefully, wenn `MetaTrader5` nicht installiert ist (alle MT5-Checks → FAIL mit
+`MT5_TERMINAL_UNAVAILABLE`). Kein Check wird jemals aus Default-Werten PASS.
 
 ---
 
-## 4. Erwartete Log-Ausgabe (Beispiel für grünen E2E)
+## 4. Erwartete Log-Ausgabe (Beispiel für grünen E2E – 14 Checks)
 ```
-[PASS] 1 FastAPI erreichbar {...}
-[PASS] 2 MT5 initialize() ...
-[PASS] 3 MT5 terminal_info() ...
-[PASS] 4 MT5 account_info() ...
-[PASS] 5 MT5 symbol_info('XAUUSD') ...
-[PASS] 6 MT5 symbol_info_tick('XAUUSD') ...
-[PASS] 7 MT5 positions_get() count=0
-[PASS] 8 EA Heartbeat
-[PASS] 9 Broker/Servername stimmt Vantage / VantageMarkets-Live
-[PASS] 10 Execution bleibt BLOCKED {...}
+[PASS] 01 Bridge Health
+[PASS] 02 MT5 Initialize
+[PASS] 03 Terminal erreichbar
+[PASS] 04 Account erkannt
+[PASS] 05 Server erkannt
+[PASS] 06 Balance
+[PASS] 07 Equity
+[PASS] 08 Free Margin
+[PASS] 09 XAUUSD Symbol Discovery
+[PASS] 10 Tick
+[PASS] 11 Positions
+[PASS] 12 Orders
+[PASS] 13 Heartbeat
+[PASS] 14 order_check
+
+ORDER_CHECK = moeglich (real mt5.order_check)
+ORDER_SEND  = BLOCKED
+LIVE EXECUTION = BLOCKED
 
 VERDICT: MT5_E2E_CONNECTED
 ```
 
+**Aktueller echter Output (2026-08-16T10:27:28Z):** `VERDICT: MT5_E2E_NOT_VERIFIED`
+(MetaTrader5 nicht installiert, 12/14 FAIL). Siehe `e2e_probe_output.txt` und
+`MT5_E2E_AUDIT_REPORT.md`.
+
 ---
 
 ## 5. Status-Übergang im Frontend
-Sobald das Backend die 10 Checks bestätigt, liefert `/api/v1/mt5/connection`:
-```json
-{ "connected": true, "verification_tier": "MT5_E2E_CONNECTED", "execution": "BLOCKED", "live_execution_blocked": true }
-```
-Erst dann darf das Dashboard `LIVE CONNECTED` anzeigen – und **trotzdem** bleibt `execution = BLOCKED` bis Phase D + alle Governance-Gates grün sind.
+Sobald die echte Probe auf dem Windows/MT5-Rechner alle 14 Checks bestätigt, liefert
+`/api/v1/mt5/verification` den Tier `MT5_E2E_CONNECTED`. Erst dann darf das Dashboard
+grün anzeigen – und **trotzdem** bleibt `execution = BLOCKED` bis Phase D + alle
+Governance-Gates grün sind.
+
+**Kein persistierter Frontend-Datensatz darf als E2E-Beweis gelten.** Die
+`MT5Connection`-Entity spiegelt nur den zuletzt vom Backend gemeldeten Stand – sie
+darf nicht aus sich selbst heraus auf `MT5_E2E_CONNECTED` gesetzt werden.
