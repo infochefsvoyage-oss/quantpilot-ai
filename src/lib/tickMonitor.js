@@ -42,6 +42,10 @@ export function computeMetrics(window) {
       quantpilot_ingestion_latency_ms: null,
       dashboard_update_latency_ms: null,
       dropped_ticks: 0,
+      heartbeat_stability_pct: null,
+      account_sync_pct: null,
+      position_sync_pct: null,
+      error_rate_pct: null,
     };
   }
 
@@ -49,6 +53,11 @@ export function computeMetrics(window) {
   const sorted = [...ages].sort((a, b) => a - b);
   const fresh = s.filter((x) => x.tick_fresh).length;
   const dropped = s.filter((x) => x.dropped).length;
+  const errored = s.filter((x) => x.errored).length;
+  const hbHealthy = s.filter((x) => x.heartbeat_healthy).length;
+  const accOk = s.filter((x) => x.account_fresh).length;
+  const posOk = s.filter((x) => x.positions_fresh).length;
+  const pct = (n) => Math.round((n / received) * 100);
 
   return {
     ticks_received: received,
@@ -63,5 +72,9 @@ export function computeMetrics(window) {
     quantpilot_ingestion_latency_ms: avg(s.map((x) => x.ingestion_latency_ms).filter((a) => typeof a === "number")),
     dashboard_update_latency_ms: avg(s.map((x) => x.dashboard_update_latency_ms).filter((a) => typeof a === "number")),
     dropped_ticks: dropped,
+    heartbeat_stability_pct: pct(hbHealthy),
+    account_sync_pct: pct(accOk),
+    position_sync_pct: pct(posOk),
+    error_rate_pct: pct(errored),
   };
 }

@@ -57,6 +57,10 @@ export default function MT5TickMonitor() {
         ingestion_latency_ms: null,
         dashboard_update_latency_ms: performance.now() - invokeStartRef.current,
         dropped: true,
+        errored: true,
+        heartbeat_healthy: false,
+        account_fresh: false,
+        positions_fresh: false,
       });
       setMetrics(computeMetrics(windowRef.current));
       setLastError(e?.message || "invoke failed");
@@ -76,6 +80,10 @@ export default function MT5TickMonitor() {
       ingestion_latency_ms: snap?.ingestion_latency_ms ?? null,
       dashboard_update_latency_ms: renderMark - invokeStartRef.current,
       dropped: !snap || snap.reachable === false,
+      errored: !snap || snap.reachable === false,
+      heartbeat_healthy: !!snap?.heartbeat_fresh,
+      account_fresh: !!snap?.account_fresh,
+      positions_fresh: !!snap?.positions_fresh,
     });
     setMetrics(computeMetrics(windowRef.current));
     setLastError(snap?.reachable === false ? snap?.error || "bridge unreachable" : null);
@@ -149,6 +157,10 @@ export default function MT5TickMonitor() {
         <Metric label="bridge_latency_ms" value={fmtMs(metrics.bridge_latency_ms)} hint="/symbols tick" />
         <Metric label="quantpilot_ingestion_latency_ms" value={fmtMs(metrics.quantpilot_ingestion_latency_ms)} hint="Base44 fn" />
         <Metric label="dashboard_update_latency_ms" value={fmtMs(metrics.dashboard_update_latency_ms)} hint="invoke → render" />
+        <Metric label="heartbeat_stability" value={`${fmtNum(metrics.heartbeat_stability_pct)}%`} tone={metrics.heartbeat_stability_pct === 100 ? "fresh" : metrics.heartbeat_stability_pct != null && metrics.heartbeat_stability_pct < 90 ? "stale" : "warn"} hint="HEALTHY / window" />
+        <Metric label="account_sync" value={`${fmtNum(metrics.account_sync_pct)}%`} tone={metrics.account_sync_pct === 100 ? "fresh" : "warn"} hint="account_fresh" />
+        <Metric label="position_sync" value={`${fmtNum(metrics.position_sync_pct)}%`} tone={metrics.position_sync_pct === 100 ? "fresh" : "warn"} hint="positions_fresh" />
+        <Metric label="error_rate" value={`${fmtNum(metrics.error_rate_pct)}%`} tone={metrics.error_rate_pct === 0 ? "fresh" : "stale"} hint="failed polls" />
       </div>
 
       <p className="mt-3 text-[11px] text-muted-foreground">
