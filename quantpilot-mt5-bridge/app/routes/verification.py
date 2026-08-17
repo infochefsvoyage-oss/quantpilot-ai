@@ -39,6 +39,8 @@ def verification() -> VerificationResponse:
     if _try(positions_get)[0] is not None:
         positions = True
     hb = heartbeat_state() == "HEALTHY"
+    from ..guards import heartbeat_reason, heartbeat_age_seconds, last_heartbeat_payload
+    hb_reason = heartbeat_reason()
 
     if resolved and tick:
         try:
@@ -60,6 +62,8 @@ def verification() -> VerificationResponse:
     tier = "MT5_E2E_CONNECTED" if all_ok else ("BACKEND_CONNECTED" if bridge else "UI_CONTRACT")
     return VerificationResponse(
         tier=tier, bridge=bridge, mt5=mt5, account=account, symbol=symbol,
-        tick=tick, positions=positions, heartbeat=hb, order_check=order_check_ok,
+        tick=tick, positions=positions, heartbeat=hb,
+        heartbeat_reason=hb_reason, heartbeat_age_s=heartbeat_age_seconds(),
+        order_check=order_check_ok,
         live_execution_blocked=not settings.is_live_allowed(), timestamp=now_iso(),
     )

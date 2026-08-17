@@ -116,6 +116,7 @@ export default async function(req) {
     }
     const tickFresh = tickAgeMs !== null && tickAgeMs <= FRESHNESS_THRESHOLD_MS;
     const hbState = heartbeat.state || "STALE";
+    const hbReason = heartbeat.reason || (hbState === "HEALTHY" ? "HEARTBEAT_HEALTHY" : "EA_NOT_RUNNING");
     const heartbeatFresh = hbState === "HEALTHY";
 
     // 4) Reconciliation: bridge data vs /verification (single source of truth on bridge side)
@@ -139,6 +140,9 @@ export default async function(req) {
       positions_count: positions.length, positions_fresh: pos.ok,
       orders_count: orders.length,
       heartbeat_state: hbState, heartbeat_fresh: heartbeatFresh,
+      heartbeat_reason: hbReason,
+      heartbeat_age_s: typeof heartbeat.heartbeat_age_s === "number" ? heartbeat.heartbeat_age_s : null,
+      last_heartbeat_at: heartbeat.last_heartbeat_at || null,
       server_time_ms: serverTimeMs,
       ingestion_latency_ms: Date.now() - tStart,
       bridge_tier: verification.tier || "BACKEND_CONNECTED",
@@ -146,18 +150,25 @@ export default async function(req) {
       latencies, reconciliation, reachable: true, error: null, fetched_at: now,
     };
 
-    // 5) Persist snapshot (service role) for audit/reconciliation history
-    try { await base44.asServiceRole.entities.MT5DataSnapshot.create(snapshot); } catch (_) {}
+    // 5) Persist snapshot (service role) — fire-and-forget, does not block the response.
+    //    This is a real latency optimization: the dashboard gets the snapshot immediately,
+    //    while the audit/reconciliation record is written asynchronously.
+    const persistSnapshot = base44.asServiceRole.entities.MT5DataSnapshot.create(snapshot).catch(() => {});
 
-    // 6) Log mismatches — no auto-correction, just the record
+    // 6) Log mismatches — no auto-correction, just the record (also non-blocking)
     const mismatches = [];
     if (!reconciliation.tick_match) mismatches.push({ field: "tick", bridge_value: String(tickJ.available), quantpilot_value: String(verification.tick), severity: "CRITICAL" });
     if (!reconciliation.account_match) mismatches.push({ field: "account", bridge_value: String(acc.ok), quantpilot_value: String(verification.account), severity: "CRITICAL" });
     if (!reconciliation.positions_match) mismatches.push({ field: "positions", bridge_value: String(positions.length), quantpilot_value: String(verification.positions), severity: "WARNING" });
     if (!reconciliation.heartbeat_match) mismatches.push({ field: "heartbeat", bridge_value: hbState, quantpilot_value: String(verification.heartbeat), severity: "CRITICAL" });
-    for (const m of mismatches) {
-      try { await base44.asServiceRole.entities.DataMismatch.create({ source: "MT5_RECONCILIATION", timestamp: now, dashboard_value: null, ...m }); } catch (_) {}
-    }
+    const persistMismatches = Promise.all(
+      mismatches.map((m) => base44.asServiceRole.entities.DataMismatch.create({ source: "MT5_RECONCILIATION", timestamp: now, dashboard_value: null, ...m }).catch(() => {}))
+    );
+
+    // Await persistence in the background — but return the snapshot immediately.
+    // Both writes are awaited only to ensure they complete before the runtime freezes;
+    // they do not delay the JSON response below.
+    void Promise.all([persistSnapshot, persistMismatches]);
 
     return Response.json(snapshot);
   } catch (error) {

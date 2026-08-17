@@ -7,11 +7,13 @@ from .schemas import BridgeError
 
 
 _last_heartbeat: Optional[float] = None
+_last_heartbeat_payload: Optional[dict] = None
 
 
-def record_heartbeat() -> None:
-    global _last_heartbeat
+def record_heartbeat(payload: Optional[dict] = None) -> None:
+    global _last_heartbeat, _last_heartbeat_payload
     _last_heartbeat = time.time()
+    _last_heartbeat_payload = payload
 
 
 def heartbeat_state(now: Optional[float] = None) -> str:
@@ -25,6 +27,33 @@ def heartbeat_state(now: Optional[float] = None) -> str:
     if age <= settings.heartbeat_stale_seconds:
         return "WARNING"
     return "STALE"
+
+
+def heartbeat_reason() -> str:
+    """Distinguish WHY the heartbeat is not HEALTHY.
+    EA_NOT_RUNNING         – no EA ever posted (last_heartbeat is None)
+    EA_HEARTBEAT_NOT_RECEIVED – bridge up but endpoint never called (alias for EA_NOT_RUNNING)
+    HEARTBEAT_STALE         – EA posted before but timed out (> stale_sec)
+    HEARTBEAT_HEALTHY       – within healthy window
+    """
+    if _last_heartbeat is None:
+        return "EA_NOT_RUNNING"
+    age = time.time() - _last_heartbeat
+    if age < settings.heartbeat_healthy_seconds:
+        return "HEARTBEAT_HEALTHY"
+    if age <= settings.heartbeat_stale_seconds:
+        return "HEARTBEAT_STALE"
+    return "HEARTBEAT_STALE"
+
+
+def heartbeat_age_seconds(now: Optional[float] = None) -> Optional[float]:
+    if _last_heartbeat is None:
+        return None
+    return (now or time.time()) - _last_heartbeat
+
+
+def last_heartbeat_payload() -> Optional[dict]:
+    return _last_heartbeat_payload
 
 
 def execution_allowed_by_heartbeat() -> bool:

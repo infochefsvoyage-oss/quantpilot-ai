@@ -122,11 +122,24 @@ class HeartbeatRequest(BaseModel):
     account: str = "********"
     symbols: list[str] = []
     timestamp: str
+    server_time: Optional[str] = None
+    state: Optional[str] = None
+    last_tick_time: Optional[str] = None
 
 
 class HeartbeatResponse(BaseModel):
     state: Literal["HEALTHY", "WARNING", "STALE"]
+    reason: Literal[
+        "HEARTBEAT_HEALTHY",
+        "EA_NOT_RUNNING",
+        "EA_HEARTBEAT_NOT_RECEIVED",
+        "HEARTBEAT_STALE",
+    ] = "EA_NOT_RUNNING"
     execution_allowed: bool = False
+    last_heartbeat_at: Optional[str] = None
+    heartbeat_age_s: Optional[float] = None
+    ea_id: Optional[str] = None
+    version: Optional[str] = None
 
 
 class ValidateOrderRequest(BaseModel):
@@ -182,6 +195,8 @@ class VerificationResponse(BaseModel):
     tick: bool = False
     positions: bool = False
     heartbeat: bool = False
+    heartbeat_reason: Optional[str] = None
+    heartbeat_age_s: Optional[float] = None
     order_check: bool = False
     live_execution_blocked: bool = True
     timestamp: str

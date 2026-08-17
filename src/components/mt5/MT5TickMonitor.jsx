@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from "react";
 import { Activity, Play, Pause, RefreshCw } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import PanelCard from "@/components/PanelCard";
 import StatusBadge from "@/components/StatusBadge";
+import MT5HeartbeatDiagnostic from "./MT5HeartbeatDiagnostic";
 import { createTickWindow, pushSample, computeMetrics } from "@/lib/tickMonitor";
 
 const POLL_MS = 3000;
@@ -18,7 +19,7 @@ function fmtNum(v) {
   return String(v);
 }
 
-function Metric({ label, value, hint, tone = "default" }) {
+const Metric = memo(function Metric({ label, value, hint, tone = "default" }) {
   const toneClass = {
     default: "text-foreground",
     fresh: "text-profit",
@@ -33,7 +34,7 @@ function Metric({ label, value, hint, tone = "default" }) {
       {hint && <div className="text-[10px] text-muted-foreground">{hint}</div>}
     </div>
   );
-}
+});
 
 export default function MT5TickMonitor() {
   const [metrics, setMetrics] = useState(() => computeMetrics(createTickWindow()));
@@ -59,9 +60,11 @@ export default function MT5TickMonitor() {
         dropped: true,
         errored: true,
         heartbeat_healthy: false,
+        heartbeat_reason: "EA_HEARTBEAT_NOT_RECEIVED",
+        heartbeat_age_s: null,
         account_fresh: false,
         positions_fresh: false,
-      });
+        });
       setMetrics(computeMetrics(windowRef.current));
       setLastError(e?.message || "invoke failed");
       setLastFetch(new Date().toISOString());
@@ -82,6 +85,8 @@ export default function MT5TickMonitor() {
       dropped: !snap || snap.reachable === false,
       errored: !snap || snap.reachable === false,
       heartbeat_healthy: !!snap?.heartbeat_fresh,
+      heartbeat_reason: snap?.heartbeat_reason || (!snap || snap.reachable === false ? "EA_HEARTBEAT_NOT_RECEIVED" : "EA_NOT_RUNNING"),
+      heartbeat_age_s: typeof snap?.heartbeat_age_s === "number" ? snap.heartbeat_age_s : null,
       account_fresh: !!snap?.account_fresh,
       positions_fresh: !!snap?.positions_fresh,
     });
@@ -100,6 +105,12 @@ export default function MT5TickMonitor() {
   const freshRate = metrics.ticks_received > 0
     ? Math.round((metrics.ticks_fresh / metrics.ticks_received) * 100)
     : 0;
+
+  const diag = useMemo(() => ({
+    reasons: metrics.heartbeat_reasons,
+    currentReason: metrics.heartbeat_reason_last,
+    heartbeatAgeS: metrics.heartbeat_age_s_last,
+  }), [metrics.heartbeat_reasons, metrics.heartbeat_reason_last, metrics.heartbeat_age_s_last]);
 
   return (
     <PanelCard
@@ -151,16 +162,32 @@ export default function MT5TickMonitor() {
         <Metric label="dropped_ticks" value={fmtNum(metrics.dropped_ticks)} tone={metrics.dropped_ticks > 0 ? "stale" : "default"} />
         <Metric label="min_age_ms" value={fmtMs(metrics.min_age_ms)} tone="cyan" />
         <Metric label="avg_age_ms" value={fmtMs(metrics.avg_age_ms)} tone="cyan" />
+        <Metric label="p50_age_ms" value={fmtMs(metrics.p50_age_ms)} tone="cyan" />
         <Metric label="p95_age_ms" value={fmtMs(metrics.p95_age_ms)} tone={metrics.p95_age_ms != null && metrics.p95_age_ms > 5000 ? "warn" : "cyan"} />
+        <Metric label="p99_age_ms" value={fmtMs(metrics.p99_age_ms)} tone={metrics.p99_age_ms != null && metrics.p99_age_ms > 5000 ? "warn" : "cyan"} />
         <Metric label="max_age_ms" value={fmtMs(metrics.max_age_ms)} tone={metrics.max_age_ms != null && metrics.max_age_ms > 5000 ? "warn" : "cyan"} />
         <Metric label="server_time_delta" value={fmtMs(metrics.server_time_delta)} hint="now − server_time_ms" />
-        <Metric label="bridge_latency_ms" value={fmtMs(metrics.bridge_latency_ms)} hint="/symbols tick" />
-        <Metric label="quantpilot_ingestion_latency_ms" value={fmtMs(metrics.quantpilot_ingestion_latency_ms)} hint="Base44 fn" />
-        <Metric label="dashboard_update_latency_ms" value={fmtMs(metrics.dashboard_update_latency_ms)} hint="invoke → render" />
+        <Metric label="bridge_latency_ms" value={fmtMs(metrics.bridge_latency_ms)} hint="avg /symbols tick" />
+        <Metric label="p50_bridge_latency" value={fmtMs(metrics.p50_bridge_latency_ms)} tone="cyan" />
+        <Metric label="p95_bridge_latency" value={fmtMs(metrics.p95_bridge_latency_ms)} tone={metrics.p95_bridge_latency_ms != null && metrics.p95_bridge_latency_ms > 1000 ? "warn" : "cyan"} />
+        <Metric label="quantpilot_ingestion" value={fmtMs(metrics.quantpilot_ingestion_latency_ms)} hint="avg Base44 fn" />
+        <Metric label="p50_ingestion" value={fmtMs(metrics.p50_ingestion_latency_ms)} tone="cyan" />
+        <Metric label="p95_ingestion" value={fmtMs(metrics.p95_ingestion_latency_ms)} tone={metrics.p95_ingestion_latency_ms != null && metrics.p95_ingestion_latency_ms > 2000 ? "warn" : "cyan"} />
+        <Metric label="dashboard_latency" value={fmtMs(metrics.dashboard_update_latency_ms)} hint="avg invoke → render" />
+        <Metric label="p50_dashboard_latency" value={fmtMs(metrics.p50_dashboard_latency_ms)} tone="cyan" />
+        <Metric label="p95_dashboard_latency" value={fmtMs(metrics.p95_dashboard_latency_ms)} tone={metrics.p95_dashboard_latency_ms != null && metrics.p95_dashboard_latency_ms > 3000 ? "warn" : "cyan"} />
         <Metric label="heartbeat_stability" value={`${fmtNum(metrics.heartbeat_stability_pct)}%`} tone={metrics.heartbeat_stability_pct === 100 ? "fresh" : metrics.heartbeat_stability_pct != null && metrics.heartbeat_stability_pct < 90 ? "stale" : "warn"} hint="HEALTHY / window" />
         <Metric label="account_sync" value={`${fmtNum(metrics.account_sync_pct)}%`} tone={metrics.account_sync_pct === 100 ? "fresh" : "warn"} hint="account_fresh" />
         <Metric label="position_sync" value={`${fmtNum(metrics.position_sync_pct)}%`} tone={metrics.position_sync_pct === 100 ? "fresh" : "warn"} hint="positions_fresh" />
         <Metric label="error_rate" value={`${fmtNum(metrics.error_rate_pct)}%`} tone={metrics.error_rate_pct === 0 ? "fresh" : "stale"} hint="failed polls" />
+      </div>
+
+      <div className="mt-3">
+        <MT5HeartbeatDiagnostic
+          reasons={diag.reasons}
+          currentReason={diag.currentReason}
+          heartbeatAgeS={diag.heartbeatAgeS}
+        />
       </div>
 
       <p className="mt-3 text-[11px] text-muted-foreground">
