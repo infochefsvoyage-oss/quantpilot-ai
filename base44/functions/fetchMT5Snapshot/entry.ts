@@ -43,6 +43,7 @@ async function fetchJson(url, headers, timeoutMs = 6000) {
 }
 
 export default async function(req) {
+  const tStart = Date.now();
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -138,6 +139,8 @@ export default async function(req) {
       positions_count: positions.length, positions_fresh: pos.ok,
       orders_count: orders.length,
       heartbeat_state: hbState, heartbeat_fresh: heartbeatFresh,
+      server_time_ms: serverTimeMs,
+      ingestion_latency_ms: Date.now() - tStart,
       bridge_tier: verification.tier || "BACKEND_CONNECTED",
       live_execution_blocked: verification.live_execution_blocked ?? true,
       latencies, reconciliation, reachable: true, error: null, fetched_at: now,

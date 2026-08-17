@@ -1,0 +1,160 @@
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Activity, Play, Pause, RefreshCw } from "lucide-react";
+import { base44 } from "@/api/base44Client";
+import PanelCard from "@/components/PanelCard";
+import StatusBadge from "@/components/StatusBadge";
+import { createTickWindow, pushSample, computeMetrics } from "@/lib/tickMonitor";
+
+const POLL_MS = 3000;
+
+function fmtMs(v) {
+  if (v == null || Number.isNaN(v)) return "–";
+  if (v < 1000) return `${Math.round(v)} ms`;
+  return `${(v / 1000).toFixed(2)} s`;
+}
+
+function fmtNum(v) {
+  if (v == null || Number.isNaN(v)) return "–";
+  return String(v);
+}
+
+function Metric({ label, value, hint, tone = "default" }) {
+  const toneClass = {
+    default: "text-foreground",
+    fresh: "text-profit",
+    stale: "text-loss",
+    warn: "text-warning",
+    cyan: "text-primary",
+  }[tone];
+  return (
+    <div className="rounded-md border border-border bg-secondary/40 px-3 py-2">
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={`mt-0.5 font-mono-num text-lg font-semibold ${toneClass}`}>{value}</div>
+      {hint && <div className="text-[10px] text-muted-foreground">{hint}</div>}
+    </div>
+  );
+}
+
+export default function MT5TickMonitor() {
+  const [metrics, setMetrics] = useState(() => computeMetrics(createTickWindow()));
+  const [running, setRunning] = useState(true);
+  const [lastError, setLastError] = useState(null);
+  const [lastFetch, setLastFetch] = useState(null);
+  const windowRef = useRef(createTickWindow());
+  const invokeStartRef = useRef(0);
+
+  const poll = useCallback(async () => {
+    invokeStartRef.current = performance.now();
+    let res;
+    try {
+      res = await base44.functions.invoke("fetchMT5Snapshot", {});
+    } catch (e) {
+      pushSample(windowRef.current, {
+        tick_age_ms: null,
+        tick_fresh: false,
+        server_time_delta: null,
+        bridge_latency_ms: null,
+        ingestion_latency_ms: null,
+        dashboard_update_latency_ms: performance.now() - invokeStartRef.current,
+        dropped: true,
+      });
+      setMetrics(computeMetrics(windowRef.current));
+      setLastError(e?.message || "invoke failed");
+      setLastFetch(new Date().toISOString());
+      return;
+    }
+
+    const renderMark = performance.now();
+    const snap = res?.data ?? res;
+    const serverTimeMs = typeof snap?.server_time_ms === "number" ? snap.server_time_ms : null;
+    const now = Date.now();
+    pushSample(windowRef.current, {
+      tick_age_ms: typeof snap?.tick_age_ms === "number" ? snap.tick_age_ms : null,
+      tick_fresh: !!snap?.tick_fresh,
+      server_time_delta: serverTimeMs != null ? now - serverTimeMs : null,
+      bridge_latency_ms: snap?.latencies?.tick_ms ?? null,
+      ingestion_latency_ms: snap?.ingestion_latency_ms ?? null,
+      dashboard_update_latency_ms: renderMark - invokeStartRef.current,
+      dropped: !snap || snap.reachable === false,
+    });
+    setMetrics(computeMetrics(windowRef.current));
+    setLastError(snap?.reachable === false ? snap?.error || "bridge unreachable" : null);
+    setLastFetch(new Date().toISOString());
+  }, []);
+
+  useEffect(() => {
+    if (!running) return undefined;
+    poll();
+    const id = setInterval(poll, POLL_MS);
+    return () => clearInterval(id);
+  }, [running, poll]);
+
+  const freshRate = metrics.ticks_received > 0
+    ? Math.round((metrics.ticks_fresh / metrics.ticks_received) * 100)
+    : 0;
+
+  return (
+    <PanelCard
+      title="TICK_MONITOR — XAUUSD"
+      action={
+        <div className="flex items-center gap-2">
+          <StatusBadge
+            status={metrics.dropped_ticks > 0 ? "DEGRADED" : metrics.ticks_stale > 0 ? "PARTIAL" : "LIVE"}
+            color={metrics.dropped_ticks > 0 ? "warning" : metrics.ticks_stale > 0 ? "warning" : "profit"}
+          />
+          <button
+            onClick={() => setRunning((r) => !r)}
+            className="flex items-center gap-1 rounded border border-border bg-secondary px-2 py-1 text-xs text-secondary-foreground hover:bg-muted"
+          >
+            {running ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+            {running ? "Pause" : "Start"}
+          </button>
+          <button
+            onClick={poll}
+            className="flex items-center gap-1 rounded border border-border bg-secondary px-2 py-1 text-xs text-secondary-foreground hover:bg-muted"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Now
+          </button>
+        </div>
+      }
+    >
+      <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+        <Activity className="h-3.5 w-3.5 text-primary" />
+        Rolling Window: <span className="font-mono text-foreground">{metrics.ticks_received}</span> Samples
+        · Fresh-Rate: <span className="font-mono text-profit">{freshRate}%</span>
+        {lastFetch && (
+          <span className="ml-auto font-mono text-[10px]">
+            {new Date(lastFetch).toLocaleTimeString("de-DE")}
+          </span>
+        )}
+      </div>
+
+      {lastError && (
+        <div className="mb-3 rounded-md border border-loss/30 bg-loss/10 px-3 py-1.5 text-xs text-loss">
+          {lastError}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        <Metric label="ticks_received" value={fmtNum(metrics.ticks_received)} />
+        <Metric label="ticks_fresh" value={fmtNum(metrics.ticks_fresh)} tone="fresh" />
+        <Metric label="ticks_stale" value={fmtNum(metrics.ticks_stale)} tone={metrics.ticks_stale > 0 ? "stale" : "default"} />
+        <Metric label="dropped_ticks" value={fmtNum(metrics.dropped_ticks)} tone={metrics.dropped_ticks > 0 ? "stale" : "default"} />
+        <Metric label="min_age_ms" value={fmtMs(metrics.min_age_ms)} tone="cyan" />
+        <Metric label="avg_age_ms" value={fmtMs(metrics.avg_age_ms)} tone="cyan" />
+        <Metric label="p95_age_ms" value={fmtMs(metrics.p95_age_ms)} tone={metrics.p95_age_ms != null && metrics.p95_age_ms > 5000 ? "warn" : "cyan"} />
+        <Metric label="max_age_ms" value={fmtMs(metrics.max_age_ms)} tone={metrics.max_age_ms != null && metrics.max_age_ms > 5000 ? "warn" : "cyan"} />
+        <Metric label="server_time_delta" value={fmtMs(metrics.server_time_delta)} hint="now − server_time_ms" />
+        <Metric label="bridge_latency_ms" value={fmtMs(metrics.bridge_latency_ms)} hint="/symbols tick" />
+        <Metric label="quantpilot_ingestion_latency_ms" value={fmtMs(metrics.quantpilot_ingestion_latency_ms)} hint="Base44 fn" />
+        <Metric label="dashboard_update_latency_ms" value={fmtMs(metrics.dashboard_update_latency_ms)} hint="invoke → render" />
+      </div>
+
+      <p className="mt-3 text-[11px] text-muted-foreground">
+        Quelle: <span className="font-mono">fetchMT5Snapshot</span> alle {POLL_MS / 1000}s. Zeitbasis
+        <span className="font-mono text-primary"> server_time_ms</span> (Bridge-Host). Keine Order, kein Live-Execution.
+      </p>
+    </PanelCard>
+  );
+}

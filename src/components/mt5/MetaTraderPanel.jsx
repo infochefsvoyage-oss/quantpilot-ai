@@ -10,6 +10,7 @@ import MT5SymbolMapping from "./MT5SymbolMapping";
 import MT5GateMatrix from "./MT5GateMatrix";
 import MT5ReadOnlyTest from "./MT5ReadOnlyTest";
 import MT5BridgeLiveCheck from "./MT5BridgeLiveCheck";
+import MT5TickMonitor from "./MT5TickMonitor";
 
 export default function MetaTraderPanel({ className = "" }) {
   const [connection, setConnection] = useState(defaultMT5Connection);
@@ -73,6 +74,11 @@ export default function MetaTraderPanel({ className = "" }) {
         {/* Read-Only Test */}
         <div className="mt-3">
           <MT5ReadOnlyTest />
+        </div>
+
+        {/* Tick Monitor */}
+        <div className="mt-3">
+          <MT5TickMonitor />
         </div>
 
         {/* Gates + Symbol Mapping */}
