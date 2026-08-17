@@ -54,8 +54,12 @@ int OnInit()
    Print("[QuantPilot-Heartbeat] EA initialisiert — EaId=", EaId,
          " Interval=", HeartbeatIntervalSec, "s Bridge=", BridgeUrl);
    Print("[QuantPilot-Heartbeat] Symbole: ", ArraySize(g_symbols), " aktiv");
+
+   // Timer aktivieren — prüft jede 1s ob Heartbeat-Intervall erreicht
+   EventSetTimer(1);
+
    return INIT_SUCCEEDED;
-}
+   }
 
 //+------------------------------------------------------------------+
 //| Expert deinitialization                                           |
@@ -179,10 +183,9 @@ void PostHeartbeat()
 }
 
 //+------------------------------------------------------------------+
-//| Chart-Event (Timer setzen beim Start)                            |
+//| Timer deinitialisieren                                            |
 //+------------------------------------------------------------------+
-int OnInitTimer()
+void OnDeinitTimer()
 {
-   EventSetTimer(1); // Timer jede 1s prüfen
-   return INIT_SUCCEEDED;
+   EventKillTimer();
 }
