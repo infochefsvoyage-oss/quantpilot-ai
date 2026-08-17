@@ -52,6 +52,11 @@ def heartbeat_age_seconds(now: Optional[float] = None) -> Optional[float]:
     return (now or time.time()) - _last_heartbeat
 
 
+def last_heartbeat_timestamp() -> Optional[float]:
+    """Return the raw epoch timestamp of the last EA heartbeat post, or None."""
+    return _last_heartbeat
+
+
 def last_heartbeat_payload() -> Optional[dict]:
     return _last_heartbeat_payload
 

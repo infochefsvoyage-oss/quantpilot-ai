@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from datetime import datetime, timezone
 from ..guards import (
     record_heartbeat, heartbeat_state, heartbeat_reason,
-    heartbeat_age_seconds, last_heartbeat_payload,
+    heartbeat_age_seconds, last_heartbeat_payload, last_heartbeat_timestamp,
     execution_allowed_by_heartbeat,
 )
 from ..schemas import HeartbeatRequest, HeartbeatResponse
@@ -26,7 +26,7 @@ def get_heartbeat() -> HeartbeatResponse:
         state=state,
         reason=reason,
         execution_allowed=execution_allowed_by_heartbeat(),
-        last_heartbeat_at=_iso(__import__("time").time() if state != "STALE" else None) if reason == "HEARTBEAT_HEALTHY" else _iso(__import__("time").time()),
+        last_heartbeat_at=_iso(last_heartbeat_timestamp()),
         heartbeat_age_s=heartbeat_age_seconds(),
         ea_id=payload.get("ea_id"),
         version=payload.get("version"),
@@ -51,7 +51,7 @@ def post_heartbeat(req: HeartbeatRequest) -> HeartbeatResponse:
         state=state,
         reason=heartbeat_reason(),
         execution_allowed=execution_allowed_by_heartbeat(),
-        last_heartbeat_at=_iso(__import__("time").time()),
+        last_heartbeat_at=_iso(last_heartbeat_timestamp()),
         heartbeat_age_s=heartbeat_age_seconds(),
         ea_id=req.ea_id,
         version=req.version,
