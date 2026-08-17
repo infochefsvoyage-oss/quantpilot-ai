@@ -1,0 +1,107 @@
+{
+  "name": "MT5DataSnapshot",
+  "type": "object",
+  "properties": {
+    "symbol": {
+      "type": "string"
+    },
+    "bid": {
+      "type": "number"
+    },
+    "ask": {
+      "type": "number"
+    },
+    "last": {
+      "type": "number"
+    },
+    "tick_time": {
+      "type": "number"
+    },
+    "spread": {
+      "type": "number"
+    },
+    "tick_age_ms": {
+      "type": "number"
+    },
+    "tick_fresh": {
+      "type": "boolean"
+    },
+    "balance": {
+      "type": "number"
+    },
+    "equity": {
+      "type": "number"
+    },
+    "margin": {
+      "type": "number"
+    },
+    "free_margin": {
+      "type": "number"
+    },
+    "currency": {
+      "type": "string"
+    },
+    "account_fresh": {
+      "type": "boolean"
+    },
+    "positions": {
+      "type": "object"
+    },
+    "positions_count": {
+      "type": "number"
+    },
+    "positions_fresh": {
+      "type": "boolean"
+    },
+    "orders_count": {
+      "type": "number"
+    },
+    "heartbeat_state": {
+      "type": "string",
+      "enum": [
+        "HEALTHY",
+        "WARNING",
+        "STALE"
+      ],
+      "default": "STALE"
+    },
+    "heartbeat_fresh": {
+      "type": "boolean"
+    },
+    "bridge_tier": {
+      "type": "string",
+      "enum": [
+        "UI_CONTRACT",
+        "BACKEND_CONNECTED",
+        "MT5_E2E_CONNECTED"
+      ],
+      "default": "UI_CONTRACT"
+    },
+    "live_execution_blocked": {
+      "type": "boolean",
+      "default": true
+    },
+    "latencies": {
+      "type": "object"
+    },
+    "reconciliation": {
+      "type": "object"
+    },
+    "reachable": {
+      "type": "boolean",
+      "default": false
+    },
+    "error": {
+      "type": "string"
+    },
+    "fetched_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "symbol",
+    "reachable",
+    "fetched_at"
+  ]
+}

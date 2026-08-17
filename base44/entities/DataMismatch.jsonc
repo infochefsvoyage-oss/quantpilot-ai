@@ -1,0 +1,43 @@
+{
+  "name": "DataMismatch",
+  "type": "object",
+  "properties": {
+    "source": {
+      "type": "string",
+      "default": "MT5_RECONCILIATION"
+    },
+    "field": {
+      "type": "string"
+    },
+    "bridge_value": {
+      "type": "string"
+    },
+    "quantpilot_value": {
+      "type": "string"
+    },
+    "dashboard_value": {
+      "type": "string"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "INFO",
+        "WARNING",
+        "CRITICAL"
+      ],
+      "default": "WARNING"
+    },
+    "resolved": {
+      "type": "boolean",
+      "default": false
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "field",
+    "timestamp"
+  ]
+}
