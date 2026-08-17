@@ -162,6 +162,7 @@ class SymbolTickResponse(BaseModel):
     ask: float = 0
     last: float = 0
     time: int = 0
+    server_time_ms: int = 0
     available: bool = False
 
 

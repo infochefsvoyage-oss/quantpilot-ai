@@ -83,11 +83,13 @@ export default async function(req) {
     const orders = (ord.json && ord.json.pending_orders) || [];
     const heartbeat = hb.json || {};
 
-    // 3) Freshness evaluation
-    const nowMs = Date.now();
+    // 3) Freshness evaluation — prefer bridge server_time_ms (same host as MT5,
+    //    no cross-host clock skew) over the Base44 backend clock.
+    const bridgeNowMs = typeof tickJ.server_time_ms === "number" && tickJ.server_time_ms > 0
+      ? tickJ.server_time_ms : Date.now();
     const tickTimeMs = tickJ.time ? tickJ.time * 1000 : 0;
-    const tickAgeMs = tickTimeMs ? nowMs - tickTimeMs : null;
-    const tickFresh = tickAgeMs !== null && tickAgeMs >= 0 && tickAgeMs < 5000;
+    const tickAgeMs = tickTimeMs ? bridgeNowMs - tickTimeMs : null;
+    const tickFresh = tickAgeMs !== null && Math.abs(tickAgeMs) < 5000;
     const hbState = heartbeat.state || "STALE";
     const heartbeatFresh = hbState === "HEALTHY";
 

@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+import time
 from ..mt5_client import discover_symbol, symbol_info, symbol_tick
 from ..schemas import SymbolResponse, SymbolTickResponse
 
@@ -18,5 +19,6 @@ def get_symbol_tick(symbol: str) -> SymbolTickResponse:
     tick = symbol_tick(resolved)
     return SymbolTickResponse(
         symbol=resolved, bid=tick.get("bid", 0), ask=tick.get("ask", 0),
-        last=tick.get("last", 0), time=tick.get("time", 0), available=True,
+        last=tick.get("last", 0), time=tick.get("time", 0),
+        server_time_ms=int(time.time() * 1000), available=True,
     )
