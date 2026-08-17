@@ -12,6 +12,18 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { secrets } from 'base44:runtime';
 
 const SYMBOL = "XAUUSD";
+const FRESHNESS_THRESHOLD_MS = 5000;
+
+// Bridge tick response shape (subset we consume). server_time_ms is the bridge
+// host clock — same host as MT5 — and is the primary time basis for tick_age_ms.
+interface BridgeTickResponse {
+  bid?: number;
+  ask?: number;
+  last?: number;
+  time?: number;          // MT5 tick time (seconds since epoch) — kept as data field only
+  server_time_ms?: number; // bridge host clock (ms) — primary freshness basis
+  available?: boolean;
+}
 
 async function fetchJson(url, headers, timeoutMs = 6000) {
   const ctrl = new AbortController();
@@ -83,13 +95,25 @@ export default async function(req) {
     const orders = (ord.json && ord.json.pending_orders) || [];
     const heartbeat = hb.json || {};
 
-    // 3) Freshness evaluation — prefer bridge server_time_ms (same host as MT5,
-    //    no cross-host clock skew) over the Base44 backend clock.
-    const bridgeNowMs = typeof tickJ.server_time_ms === "number" && tickJ.server_time_ms > 0
-      ? tickJ.server_time_ms : Date.now();
-    const tickTimeMs = tickJ.time ? tickJ.time * 1000 : 0;
-    const tickAgeMs = tickTimeMs ? bridgeNowMs - tickTimeMs : null;
-    const tickFresh = tickAgeMs !== null && Math.abs(tickAgeMs) < 5000;
+    // 3) Freshness evaluation — primary basis is bridge server_time_ms (bridge host
+    //    clock, same host as MT5 → no cross-host clock skew). tick_age_ms measures
+    //    how stale the bridge's own timestamp is relative to Base44 now. tick.time
+    //    (MT5 tick time) is kept as a data field but is NOT used for age calculation.
+    //    Fallback: if server_time_ms is missing/invalid, use the legacy tick.time
+    //    based calculation against Date.now().
+    const tickMs: BridgeTickResponse = tickJ;
+    const tickTimeMs = tickMs.time ? tickMs.time * 1000 : null;
+    const serverTimeMs = typeof tickMs.server_time_ms === "number" && tickMs.server_time_ms > 0
+      ? tickMs.server_time_ms : null;
+    let tickAgeMs: number | null;
+    if (serverTimeMs !== null) {
+      tickAgeMs = Math.max(0, Date.now() - serverTimeMs);
+    } else if (tickTimeMs !== null) {
+      tickAgeMs = Math.max(0, Date.now() - tickTimeMs);
+    } else {
+      tickAgeMs = null;
+    }
+    const tickFresh = tickAgeMs !== null && tickAgeMs <= FRESHNESS_THRESHOLD_MS;
     const hbState = heartbeat.state || "STALE";
     const heartbeatFresh = hbState === "HEALTHY";
 
