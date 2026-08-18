@@ -160,6 +160,50 @@ export function evaluateICTSetup(components) {
   return "NO_TRADE";
 }
 
+// Refined decision states for PHASE ICT-XAUUSD-RO:
+// NO_TRADE → WATCH → SETUP → VALIDATED_SETUP
+export function evaluateDecisionState(components) {
+  const { sweep, bos, fvg, ob, premiumDiscount, session, side } = components;
+  const hasSweep = sweep && sweep.sweep;
+  const hasDisplacement = bos && bos.mss_bos !== "NONE";
+  const hasFVGorOB = (fvg && fvg.detected) || (ob && ob.detected);
+  const sideAligned = side === "LONG"
+    ? (bos && bos.direction === "BULLISH") && premiumDiscount.zone === "DISCOUNT"
+    : (bos && bos.direction === "BEARISH") && premiumDiscount.zone === "PREMIUM";
+  const inKillzone = session && (session.name === "LONDON" || session.name === "NEW_YORK");
+
+  if (hasSweep && hasDisplacement && hasFVGorOB && sideAligned && inKillzone) return "VALIDATED_SETUP";
+  if (hasSweep && hasDisplacement && hasFVGorOB) return "SETUP";
+  if (hasSweep || hasDisplacement || hasFVGorOB) return "WATCH";
+  return "NO_TRADE";
+}
+
+// Structure version — hash of recent swing points to detect structure changes
+export function computeStructureVersion(swings) {
+  const recent = swings.slice(-5);
+  return recent.map(s => `${s.type}:${Math.round(s.price * 100)}`).join("|");
+}
+
+// Signal freshness — a signal is STALE if signal_age_ms exceeds threshold
+export const SIGNAL_FRESHNESS_THRESHOLD_MS = 5000;
+
+export function checkSignalFreshness(signalCreatedAt, marketDataTimestamp, structureVersion, previousStructureVersion) {
+  const now = Date.now();
+  const signalAgeMs = now - signalCreatedAt;
+  const signalFresh = signalAgeMs <= SIGNAL_FRESHNESS_THRESHOLD_MS;
+  const structureChanged = previousStructureVersion != null && structureVersion !== previousStructureVersion;
+  return {
+    signal_created_at: signalCreatedAt,
+    market_data_timestamp: marketDataTimestamp,
+    signal_age_ms: signalAgeMs,
+    signal_fresh: signalFresh,
+    structure_version: structureVersion,
+    structure_changed: structureChanged,
+    signal_status: signalFresh ? "FRESH" : "STALE",
+    execution: signalFresh ? "ALLOWED_ANALYSIS" : "BLOCKED",
+  };
+}
+
 export function computeRR(entry, stopLoss, takeProfit) {
   if (!entry || !stopLoss || !takeProfit) return 0;
   const risk = Math.abs(entry - stopLoss);
@@ -175,19 +219,65 @@ export function rrInAllowedRange(rr) {
 // ─── Full ICT Analysis ────────────────────────────────────────────────────────
 export function analyzeICT(candles, side = "LONG") {
   if (!candles || candles.length < 10) {
-    return { valid: false, setup: "NO_TRADE", reason: "insufficient_candles", components: null };
+    return {
+      valid: false, setup: "NO_TRADE", decision: "NO_TRADE",
+      reason: "insufficient_candles", components: null,
+      latencies: {}, signal_freshness: null,
+    };
   }
+
+  const lat = {};
+
+  // M1 STRUCTURE
+  const t0 = performance.now();
   const swings = detectSwings(candles);
   const structure = classifyMarketStructure(swings);
   const bos = detectBOSCHOCH(candles, swings);
+  lat.structure_ms = performance.now() - t0;
+
+  // LIQUIDITY / SWEEP / RAID
+  const t1 = performance.now();
   const sweep = detectLiquiditySweep(candles, swings);
+  lat.liquidity_ms = performance.now() - t1;
+
+  // FVG / ORDER BLOCK
+  const t2 = performance.now();
   const fvg = detectFVG(candles);
   const ob = detectOrderBlock(candles);
+  lat.fvg_ob_ms = performance.now() - t2;
+
+  // PREMIUM / DISCOUNT + KILLZONE
+  const t3 = performance.now();
   const premiumDiscount = computePremiumDiscount(candles);
   const session = getCurrentSession();
+  lat.premium_discount_ms = performance.now() - t3;
+
+  // ICT SCORE + SIGNAL
+  const t4 = performance.now();
   const components = { swings, structure, bos, sweep, fvg, ob, premiumDiscount, session, side };
   const setup = evaluateICTSetup(components);
-  return { valid: setup === "VALID", setup, components };
+  const decision = evaluateDecisionState(components);
+  lat.signal_ms = performance.now() - t4;
+
+  lat.total_ms = lat.structure_ms + lat.liquidity_ms + lat.fvg_ob_ms + lat.premium_discount_ms + lat.signal_ms;
+
+  // Signal freshness
+  const lastCandleTime = candles[candles.length - 1].time * 1000;
+  const signalCreatedAt = Date.now();
+  const structureVersion = computeStructureVersion(swings);
+
+  return {
+    valid: setup === "VALID",
+    setup,
+    decision,
+    components,
+    latencies: lat,
+    signal_freshness: {
+      signal_created_at: signalCreatedAt,
+      market_data_timestamp: lastCandleTime,
+      structure_version: structureVersion,
+    },
+  };
 }
 
 // ─── Paper Signal Generator ───────────────────────────────────────────────────
@@ -210,6 +300,7 @@ export function generatePaperSignal(analysis, tick, timeframe = "M1") {
     timeframe,
     direction,
     setup: "ICT_LIQUIDITY_SWEEP_FVG_OB",
+    decision: analysis.decision || (analysis.valid ? "VALIDATED_SETUP" : "WATCH"),
     entry,
     stop_loss: stopLoss,
     tp1,
@@ -221,5 +312,8 @@ export function generatePaperSignal(analysis, tick, timeframe = "M1") {
     session: session ? session.name : "OFF",
     timestamp: new Date().toISOString(),
     mode: "PAPER",
+    signal_created_at: analysis.signal_freshness?.signal_created_at || Date.now(),
+    market_data_timestamp: analysis.signal_freshness?.market_data_timestamp || null,
+    structure_version: analysis.signal_freshness?.structure_version || null,
   };
 }
