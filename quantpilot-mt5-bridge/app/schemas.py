@@ -195,6 +195,7 @@ class OrderCheckResponse(BaseModel):
 
 class RateCandle(BaseModel):
     time: int
+    time_ms: int = 0
     open: float
     high: float
     low: float
@@ -208,7 +209,8 @@ class RatesResponse(BaseModel):
     symbol: str
     timeframe: str = "M1"
     count: int = 0
-    candles: list[RateCandle] = []
+    start: int = 0
+    rates: list[RateCandle] = []
     server_time_ms: int = 0
     available: bool = False
 

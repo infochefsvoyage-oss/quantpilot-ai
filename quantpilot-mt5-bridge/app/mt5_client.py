@@ -114,41 +114,68 @@ def symbol_tick(name: str) -> dict:
     return tick._asdict()
 
 
-def copy_rates(name: str, timeframe: str = "M1", count: int = 100, start: int = 0) -> list[dict]:
+SUPPORTED_TIMEFRAMES = (
+    "M1", "M2", "M3", "M4", "M5", "M6", "M10", "M12",
+    "M15", "M20", "M30",
+    "H1", "H2", "H3", "H4", "H6", "H8", "H12",
+    "D1", "W1", "MN1",
+)
+
+
+def symbol_rates(name: str, timeframe: str = "M1", count: int = 100, start: int = 0) -> list[dict]:
     """Real mt5.copy_rates_from_pos – read-only OHLCV, no order.
-    start=0 → most recent candles; start=N → N candles back from now."""
+    start=0 → most recent candles; start=N → N candles back from now.
+    Candles sorted oldest → newest. count: 1..5000, start: >= 0."""
+    if timeframe not in SUPPORTED_TIMEFRAMES:
+        raise BridgeError("MARKET_DATA_UNAVAILABLE", f"unsupported timeframe: {timeframe}", 400, "symbol_rates")
+    if not (1 <= count <= 5000):
+        raise BridgeError("MARKET_DATA_UNAVAILABLE", f"count out of range (1..5000): {count}", 400, "symbol_rates")
+    if start < 0:
+        raise BridgeError("MARKET_DATA_UNAVAILABLE", f"start must be >= 0: {start}", 400, "symbol_rates")
     ensure_initialized()
     mt5 = _mt5()
     # Ensure symbol is in Market Watch — copy_rates_from_pos needs it
     if not mt5.symbol_select(name, True):
-        log.warning(f"copy_rates.symbol_select_failed: {name}")
+        log.warning(f"symbol_rates.symbol_select_failed: {name}")
     tf_map = {
-        "M1": mt5.TIMEFRAME_M1,
-        "M5": mt5.TIMEFRAME_M5,
-        "M15": mt5.TIMEFRAME_M15,
-        "H1": mt5.TIMEFRAME_H1,
-        "H4": mt5.TIMEFRAME_H4,
-        "D1": mt5.TIMEFRAME_D1,
+        "M1": mt5.TIMEFRAME_M1, "M2": mt5.TIMEFRAME_M2, "M3": mt5.TIMEFRAME_M3,
+        "M4": mt5.TIMEFRAME_M4, "M5": mt5.TIMEFRAME_M5, "M6": mt5.TIMEFRAME_M6,
+        "M10": mt5.TIMEFRAME_M10, "M12": mt5.TIMEFRAME_M12, "M15": mt5.TIMEFRAME_M15,
+        "M20": mt5.TIMEFRAME_M20, "M30": mt5.TIMEFRAME_M30,
+        "H1": mt5.TIMEFRAME_H1, "H2": mt5.TIMEFRAME_H2, "H3": mt5.TIMEFRAME_H3,
+        "H4": mt5.TIMEFRAME_H4, "H6": mt5.TIMEFRAME_H6, "H8": mt5.TIMEFRAME_H8,
+        "H12": mt5.TIMEFRAME_H12, "D1": mt5.TIMEFRAME_D1, "W1": mt5.TIMEFRAME_W1,
+        "MN1": mt5.TIMEFRAME_MN1,
     }
     tf = tf_map.get(timeframe, mt5.TIMEFRAME_M1)
     rates = mt5.copy_rates_from_pos(name, tf, start, count)
     if rates is None:
-        raise BridgeError("MARKET_DATA_UNAVAILABLE", f"copy_rates None: {name} {timeframe}", 503, "copy_rates")
+        raise BridgeError("MARKET_DATA_UNAVAILABLE", f"copy_rates None: {name} {timeframe}", 503, "symbol_rates")
     if len(rates) == 0:
-        log.warning(f"copy_rates.empty: {name} {timeframe} count={count} — no history loaded")
-    return [
+        log.warning(f"symbol_rates.empty: {name} {timeframe} count={count} start={start} — no history loaded")
+        return []
+    field_names = rates.dtype.names
+    candles = [
         {
             "time": int(r["time"]),
+            "time_ms": int(r["time"]) * 1000,
             "open": float(r["open"]),
             "high": float(r["high"]),
             "low": float(r["low"]),
             "close": float(r["close"]),
             "tick_volume": int(r["tick_volume"]),
-            "real_volume": int(r.get("real_volume", 0)) if hasattr(r, "dtype") else 0,
-            "spread": int(r["spread"]) if "spread" in r.dtype.names else 0,
+            "real_volume": int(r["real_volume"]) if "real_volume" in field_names else 0,
+            "spread": int(r["spread"]) if "spread" in field_names else 0,
         }
         for r in rates
     ]
+    # Ensure chronological order: oldest → newest
+    candles.sort(key=lambda c: c["time"])
+    return candles
+
+
+# Backward-compatible alias
+copy_rates = symbol_rates
 
 
 def positions_get(magic: Optional[int] = None) -> list[dict]:
