@@ -81,7 +81,10 @@ export default async function(req) {
       if (gap > M1_MS * 1.5) candleGaps++;
     }
     const lastCandleTimeMs = candles.length > 0 ? candles[candles.length - 1].time * 1000 : null;
-    const lastCandleAgeMs = lastCandleTimeMs !== null ? Date.now() - lastCandleTimeMs : null;
+    // MT5 returns candle timestamps in broker server time (EET/UTC+3), not UTC.
+    // Normalize using the offset between MT5 tick time (EET) and bridge server_time_ms (UTC).
+    const brokerOffsetMs = (tickJ.time && serverTimeMs) ? (tickJ.time * 1000) - serverTimeMs : 0;
+    const lastCandleAgeMs = lastCandleTimeMs !== null ? Date.now() - lastCandleTimeMs + brokerOffsetMs : null;
     const candleComplete = candles.length >= CANDLE_COUNT * 0.95 && candleGaps === 0;
 
     // 5) Build snapshot — candles are raw; frontend ICT engine runs the analysis
