@@ -118,6 +118,9 @@ def copy_rates(name: str, timeframe: str = "M1", count: int = 100) -> list[dict]
     """Real mt5.copy_rates_from_pos – read-only OHLCV, no order."""
     ensure_initialized()
     mt5 = _mt5()
+    # Ensure symbol is in Market Watch — copy_rates_from_pos needs it
+    if not mt5.symbol_select(name, True):
+        log.warning(f"copy_rates.symbol_select_failed: {name}")
     tf_map = {
         "M1": mt5.TIMEFRAME_M1,
         "M5": mt5.TIMEFRAME_M5,
@@ -130,6 +133,8 @@ def copy_rates(name: str, timeframe: str = "M1", count: int = 100) -> list[dict]
     rates = mt5.copy_rates_from_pos(name, tf, 0, count)
     if rates is None:
         raise BridgeError("MARKET_DATA_UNAVAILABLE", f"copy_rates None: {name} {timeframe}", 503, "copy_rates")
+    if len(rates) == 0:
+        log.warning(f"copy_rates.empty: {name} {timeframe} count={count} — no history loaded")
     return [
         {
             "time": int(r["time"]),
