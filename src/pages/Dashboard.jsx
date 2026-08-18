@@ -12,6 +12,7 @@ import {
 import PanelCard from "@/components/PanelCard";
 import StatusBadge from "@/components/StatusBadge";
 import GateIndicator from "@/components/GateIndicator";
+import ICTPipelineMonitor from "@/components/ict/ICTPipelineMonitor";
 
 export default function Dashboard() {
   const topSignal = sampleSignals[0];
@@ -221,6 +222,11 @@ export default function Dashboard() {
             </table>
           </div>
         </PanelCard>
+      </div>
+
+      {/* ICT Pipeline Read-Only Performance Monitor */}
+      <div className="mt-4">
+        <ICTPipelineMonitor />
       </div>
 
       {/* Disclaimer */}

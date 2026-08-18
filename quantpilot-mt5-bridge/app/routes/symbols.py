@@ -1,7 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 import time
-from ..mt5_client import discover_symbol, symbol_info, symbol_tick
-from ..schemas import SymbolResponse, SymbolTickResponse
+from ..mt5_client import discover_symbol, symbol_info, symbol_tick, copy_rates
+from ..schemas import SymbolResponse, SymbolTickResponse, RatesResponse
 
 router = APIRouter()
 
@@ -21,4 +21,19 @@ def get_symbol_tick(symbol: str) -> SymbolTickResponse:
         symbol=resolved, bid=tick.get("bid", 0), ask=tick.get("ask", 0),
         last=tick.get("last", 0), time=tick.get("time", 0),
         server_time_ms=int(time.time() * 1000), available=True,
+    )
+
+
+@router.get("/symbols/{symbol}/rates", response_model=RatesResponse)
+def get_symbol_rates(
+    symbol: str,
+    timeframe: str = Query("M1", regex="^(M1|M5|M15|H1|H4|D1)$"),
+    count: int = Query(100, ge=10, le=500),
+) -> RatesResponse:
+    # Read-only OHLCV for ICT engine — no order, no execution.
+    resolved, _ = discover_symbol(symbol)
+    candles = copy_rates(resolved, timeframe, count)
+    return RatesResponse(
+        symbol=resolved, timeframe=timeframe, count=len(candles),
+        candles=candles, server_time_ms=int(time.time() * 1000), available=True,
     )

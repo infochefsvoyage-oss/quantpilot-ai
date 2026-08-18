@@ -114,6 +114,37 @@ def symbol_tick(name: str) -> dict:
     return tick._asdict()
 
 
+def copy_rates(name: str, timeframe: str = "M1", count: int = 100) -> list[dict]:
+    """Real mt5.copy_rates_from_pos – read-only OHLCV, no order."""
+    ensure_initialized()
+    mt5 = _mt5()
+    tf_map = {
+        "M1": mt5.TIMEFRAME_M1,
+        "M5": mt5.TIMEFRAME_M5,
+        "M15": mt5.TIMEFRAME_M15,
+        "H1": mt5.TIMEFRAME_H1,
+        "H4": mt5.TIMEFRAME_H4,
+        "D1": mt5.TIMEFRAME_D1,
+    }
+    tf = tf_map.get(timeframe, mt5.TIMEFRAME_M1)
+    rates = mt5.copy_rates_from_pos(name, tf, 0, count)
+    if rates is None:
+        raise BridgeError("MARKET_DATA_UNAVAILABLE", f"copy_rates None: {name} {timeframe}", 503, "copy_rates")
+    return [
+        {
+            "time": int(r["time"]),
+            "open": float(r["open"]),
+            "high": float(r["high"]),
+            "low": float(r["low"]),
+            "close": float(r["close"]),
+            "tick_volume": int(r["tick_volume"]),
+            "real_volume": int(r.get("real_volume", 0)) if hasattr(r, "dtype") else 0,
+            "spread": int(r["spread"]) if "spread" in r.dtype.names else 0,
+        }
+        for r in rates
+    ]
+
+
 def positions_get(magic: Optional[int] = None) -> list[dict]:
     ensure_initialized()
     mt5 = _mt5()

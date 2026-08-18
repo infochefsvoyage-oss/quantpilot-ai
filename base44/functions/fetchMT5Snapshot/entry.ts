@@ -6,41 +6,9 @@
 // the consolidated snapshot to the dashboard. No order is ever sent; execution stays BLOCKED.
 //
 // Secrets: MT5_BRIDGE_URL (public bridge base, incl. /api/v1/mt5), MT5_BRIDGE_API_KEY.
-// Until the operator exposes the bridge and sets the secrets, this returns an honest
-// "not configured / unreachable" result — never a simulated PASS.
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { secrets } from 'base44:runtime';
-
-const SYMBOL = "XAUUSD";
-const FRESHNESS_THRESHOLD_MS = 5000;
-
-// Bridge tick response shape (subset we consume). server_time_ms is the bridge
-// host clock — same host as MT5 — and is the primary time basis for tick_age_ms.
-interface BridgeTickResponse {
-  bid?: number;
-  ask?: number;
-  last?: number;
-  time?: number;          // MT5 tick time (seconds since epoch) — kept as data field only
-  server_time_ms?: number; // bridge host clock (ms) — primary freshness basis
-  available?: boolean;
-}
-
-async function fetchJson(url, headers, timeoutMs = 6000) {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), timeoutMs);
-  const t0 = Date.now();
-  try {
-    const res = await fetch(url, { headers, signal: ctrl.signal });
-    const body = await res.text();
-    let json = null;
-    try { json = body ? JSON.parse(body) : null; } catch (_) {}
-    return { ok: res.ok, status: res.status, json, latency_ms: Date.now() - t0 };
-  } catch (e) {
-    return { ok: false, status: 0, json: null, latency_ms: Date.now() - t0, error: e.message };
-  } finally {
-    clearTimeout(t);
-  }
-}
+import { SYMBOL, FRESHNESS_THRESHOLD_MS, fetchJson, computeTickAgeMs, getServerTimeMs, mapPositions, heartbeatFields } from '../../shared/mt5Bridge.ts';
 
 export default async function(req) {
   const tStart = Date.now();
@@ -74,7 +42,7 @@ export default async function(req) {
     }
 
     // 2) Read endpoints (parallel) — tick, account, symbol, positions, orders, heartbeat, verification
-    const [ver, acc, tick, pos, ord, hb] = await Promise.all([
+    const [ver, acc, tick, pos, ord, hbRaw] = await Promise.all([
       fetchJson(`${base}/verification`, headers),
       fetchJson(`${base}/account`, headers),
       fetchJson(`${base}/symbols/${SYMBOL}/tick`, headers),
@@ -87,69 +55,48 @@ export default async function(req) {
     latencies.tick_ms = tick.latency_ms;
     latencies.positions_ms = pos.latency_ms;
     latencies.orders_ms = ord.latency_ms;
-    latencies.heartbeat_ms = hb.latency_ms;
+    latencies.heartbeat_ms = hbRaw.latency_ms;
 
     const verification = ver.json || {};
     const account = (acc.json && acc.json.account) || {};
     const tickJ = tick.json || {};
     const positions = (pos.json && pos.json.positions) || [];
     const orders = (ord.json && ord.json.pending_orders) || [];
-    const heartbeat = hb.json || {};
+    const heartbeat = hbRaw.json || {};
 
     // 3) Freshness evaluation — primary basis is bridge server_time_ms (bridge host
     //    clock, same host as MT5 → no cross-host clock skew). tick_age_ms measures
-    //    how stale the bridge's own timestamp is relative to Base44 now. tick.time
-    //    (MT5 tick time) is kept as a data field but is NOT used for age calculation.
-    //    Fallback: if server_time_ms is missing/invalid, use the legacy tick.time
-    //    based calculation against Date.now().
-    const tickMs: BridgeTickResponse = tickJ;
-    const tickTimeMs = tickMs.time ? tickMs.time * 1000 : null;
-    const serverTimeMs = typeof tickMs.server_time_ms === "number" && tickMs.server_time_ms > 0
-      ? tickMs.server_time_ms : null;
-    let tickAgeMs: number | null;
-    if (serverTimeMs !== null) {
-      tickAgeMs = Math.max(0, Date.now() - serverTimeMs);
-    } else if (tickTimeMs !== null) {
-      tickAgeMs = Math.max(0, Date.now() - tickTimeMs);
-    } else {
-      tickAgeMs = null;
-    }
+    //    how stale the bridge's own timestamp is relative to Base44 now.
+    const tickAgeMs = computeTickAgeMs(tickJ);
     const tickFresh = tickAgeMs !== null && tickAgeMs <= FRESHNESS_THRESHOLD_MS;
-    const hbState = heartbeat.state || "STALE";
-    const hbReason = heartbeat.reason || (hbState === "HEALTHY" ? "HEARTBEAT_HEALTHY" : "EA_NOT_RUNNING");
-    const heartbeatFresh = hbState === "HEALTHY";
+    const serverTimeMs = getServerTimeMs(tickJ);
+    const hb = heartbeatFields(heartbeat);
 
     // 4) Reconciliation: bridge data vs /verification (single source of truth on bridge side)
     const reconciliation = {
       tick_match: verification.tick === true && tickJ.available === true,
       account_match: verification.account === true && acc.ok && (acc.json ? acc.json.connected : false) !== false,
       positions_match: verification.positions === true,
-      heartbeat_match: verification.heartbeat === true && heartbeatFresh,
+      heartbeat_match: verification.heartbeat === true && hb.heartbeat_fresh,
     };
 
     const snapshot = {
       symbol: SYMBOL,
       bid: tickJ.bid ?? null, ask: tickJ.ask ?? null, last: tickJ.last ?? null,
-      tick_time: tickTimeMs || null,
+      tick_time: tickJ.time ? tickJ.time * 1000 : null,
       spread: (tickJ.ask != null && tickJ.bid != null) ? tickJ.ask - tickJ.bid : null,
       tick_age_ms: tickAgeMs, tick_fresh: tickFresh,
       balance: account.balance ?? null, equity: account.equity ?? null,
       margin: account.margin ?? null, free_margin: account.free_margin ?? null,
       currency: account.currency || null, account_fresh: acc.ok,
-      positions: positions.map(p => ({ ticket: p.ticket, symbol: p.symbol, side: p.side, volume: p.volume, entry: p.entry, sl: p.sl, tp: p.tp, profit: p.profit })),
+      positions: mapPositions(positions),
       positions_count: positions.length, positions_fresh: pos.ok,
       orders_count: orders.length,
-      heartbeat_state: hbState, heartbeat_fresh: heartbeatFresh,
-      heartbeat_reason: hbReason,
-      heartbeat_age_s: typeof heartbeat.heartbeat_age_s === "number" ? heartbeat.heartbeat_age_s : null,
+      ...hb,
       last_heartbeat_at: heartbeat.last_heartbeat_at || null,
-      // POST monitoring (section 8) — from bridge heartbeat response
-      heartbeat_post_success: typeof heartbeat.post_success === "number" ? heartbeat.post_success : 0,
-      heartbeat_post_failures: typeof heartbeat.post_failures === "number" ? heartbeat.post_failures : 0,
       heartbeat_last_success_at: heartbeat.last_success_at || null,
       heartbeat_last_failure_at: heartbeat.last_failure_at || null,
       heartbeat_consecutive_failures: typeof heartbeat.consecutive_failures === "number" ? heartbeat.consecutive_failures : 0,
-      heartbeat_failure_rate: typeof heartbeat.failure_rate === "number" ? heartbeat.failure_rate : 0,
       server_time_ms: serverTimeMs,
       ingestion_latency_ms: Date.now() - tStart,
       bridge_tier: verification.tier || "BACKEND_CONNECTED",
@@ -158,8 +105,6 @@ export default async function(req) {
     };
 
     // 5) Persist snapshot (service role) — fire-and-forget, does not block the response.
-    //    This is a real latency optimization: the dashboard gets the snapshot immediately,
-    //    while the audit/reconciliation record is written asynchronously.
     const persistSnapshot = base44.asServiceRole.entities.MT5DataSnapshot.create(snapshot).catch(() => {});
 
     // 6) Log mismatches — no auto-correction, just the record (also non-blocking)
@@ -167,14 +112,11 @@ export default async function(req) {
     if (!reconciliation.tick_match) mismatches.push({ field: "tick", bridge_value: String(tickJ.available), quantpilot_value: String(verification.tick), severity: "CRITICAL" });
     if (!reconciliation.account_match) mismatches.push({ field: "account", bridge_value: String(acc.ok), quantpilot_value: String(verification.account), severity: "CRITICAL" });
     if (!reconciliation.positions_match) mismatches.push({ field: "positions", bridge_value: String(positions.length), quantpilot_value: String(verification.positions), severity: "WARNING" });
-    if (!reconciliation.heartbeat_match) mismatches.push({ field: "heartbeat", bridge_value: hbState, quantpilot_value: String(verification.heartbeat), severity: "CRITICAL" });
+    if (!reconciliation.heartbeat_match) mismatches.push({ field: "heartbeat", bridge_value: hb.heartbeat_state, quantpilot_value: String(verification.heartbeat), severity: "CRITICAL" });
     const persistMismatches = Promise.all(
       mismatches.map((m) => base44.asServiceRole.entities.DataMismatch.create({ source: "MT5_RECONCILIATION", timestamp: now, dashboard_value: null, ...m }).catch(() => {}))
     );
 
-    // Await persistence in the background — but return the snapshot immediately.
-    // Both writes are awaited only to ensure they complete before the runtime freezes;
-    // they do not delay the JSON response below.
     void Promise.all([persistSnapshot, persistMismatches]);
 
     return Response.json(snapshot);

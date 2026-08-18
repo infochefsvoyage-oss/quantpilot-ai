@@ -193,6 +193,26 @@ class OrderCheckResponse(BaseModel):
     stage: str = "order_check"
 
 
+class RateCandle(BaseModel):
+    time: int
+    open: float
+    high: float
+    low: float
+    close: float
+    tick_volume: int = 0
+    real_volume: int = 0
+    spread: int = 0
+
+
+class RatesResponse(BaseModel):
+    symbol: str
+    timeframe: str = "M1"
+    count: int = 0
+    candles: list[RateCandle] = []
+    server_time_ms: int = 0
+    available: bool = False
+
+
 class VerificationResponse(BaseModel):
     tier: VerificationTier = "UI_CONTRACT"
     bridge: bool = False
