@@ -81,8 +81,19 @@ export default async function(req) {
       if (gap > M1_MS * 1.5) candleGaps++;
     }
     const lastCandleTimeMs = candles.length > 0 ? candles[candles.length - 1].time * 1000 : null;
-    // MT5 returns candle timestamps in broker server time (EET/UTC+3), not UTC.
-    // Normalize using the offset between MT5 tick time (EET) and bridge server_time_ms (UTC).
+    // ── TIMEBASE NORMALIZATION — DO NOT REMOVE ──────────────────────────────
+    // MT5's copy_rates_from_pos returns candle `time` in BROKER SERVER TIME
+    // (Vantage = EET/UTC+3), NOT in UTC. Date.now() and bridge server_time_ms
+    // are both UTC. Without correction, Date.now() - (candle.time * 1000) is
+    // negative by ~3h (≈ -10.8M ms), making ICT_CANDLE_LATENCY unusable.
+    //
+    // The offset is computed DYNAMICALLY from the tick response (not hardcoded)
+    // because: (a) DST shifts EET between UTC+2 and UTC+3, (b) different brokers
+    // use different server timezones, (c) it stays correct if the bridge host
+    // clock drifts. tickJ.time is MT5 broker time; serverTimeMs is bridge UTC.
+    // Their difference IS the broker→UTC offset, applied to normalize the
+    // candle timestamp before computing its age.
+    // ────────────────────────────────────────────────────────────────────────
     const brokerOffsetMs = (tickJ.time && serverTimeMs) ? (tickJ.time * 1000) - serverTimeMs : 0;
     const lastCandleAgeMs = lastCandleTimeMs !== null ? Date.now() - lastCandleTimeMs + brokerOffsetMs : null;
     const candleComplete = candles.length >= CANDLE_COUNT * 0.95 && candleGaps === 0;
