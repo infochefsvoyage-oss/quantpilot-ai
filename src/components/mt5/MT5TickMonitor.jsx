@@ -41,6 +41,7 @@ export default function MT5TickMonitor() {
   const [running, setRunning] = useState(true);
   const [lastError, setLastError] = useState(null);
   const [lastFetch, setLastFetch] = useState(null);
+  const [lastSnap, setLastSnap] = useState(null);
   const windowRef = useRef(createTickWindow());
   const invokeStartRef = useRef(0);
 
@@ -68,6 +69,7 @@ export default function MT5TickMonitor() {
       setMetrics(computeMetrics(windowRef.current));
       setLastError(e?.message || "invoke failed");
       setLastFetch(new Date().toISOString());
+      setLastSnap(null);
       return;
     }
 
@@ -93,6 +95,7 @@ export default function MT5TickMonitor() {
     setMetrics(computeMetrics(windowRef.current));
     setLastError(snap?.reachable === false ? snap?.error || "bridge unreachable" : null);
     setLastFetch(new Date().toISOString());
+    setLastSnap(snap);
   }, []);
 
   useEffect(() => {
@@ -105,6 +108,15 @@ export default function MT5TickMonitor() {
   const freshRate = metrics.ticks_received > 0
     ? Math.round((metrics.ticks_fresh / metrics.ticks_received) * 100)
     : 0;
+
+  const postMetrics = useMemo(() => ({
+    post_success: lastSnap?.heartbeat_post_success ?? 0,
+    post_failures: lastSnap?.heartbeat_post_failures ?? 0,
+    last_success_at: lastSnap?.heartbeat_last_success_at ?? null,
+    last_failure_at: lastSnap?.heartbeat_last_failure_at ?? null,
+    consecutive_failures: lastSnap?.heartbeat_consecutive_failures ?? 0,
+    failure_rate: lastSnap?.heartbeat_failure_rate ?? 0,
+  }), [lastSnap]);
 
   const diag = useMemo(() => ({
     reasons: metrics.heartbeat_reasons,
@@ -187,6 +199,7 @@ export default function MT5TickMonitor() {
           reasons={diag.reasons}
           currentReason={diag.currentReason}
           heartbeatAgeS={diag.heartbeatAgeS}
+          postMetrics={postMetrics}
         />
       </div>
 

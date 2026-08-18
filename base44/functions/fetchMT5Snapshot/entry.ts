@@ -143,6 +143,13 @@ export default async function(req) {
       heartbeat_reason: hbReason,
       heartbeat_age_s: typeof heartbeat.heartbeat_age_s === "number" ? heartbeat.heartbeat_age_s : null,
       last_heartbeat_at: heartbeat.last_heartbeat_at || null,
+      // POST monitoring (section 8) — from bridge heartbeat response
+      heartbeat_post_success: typeof heartbeat.post_success === "number" ? heartbeat.post_success : 0,
+      heartbeat_post_failures: typeof heartbeat.post_failures === "number" ? heartbeat.post_failures : 0,
+      heartbeat_last_success_at: heartbeat.last_success_at || null,
+      heartbeat_last_failure_at: heartbeat.last_failure_at || null,
+      heartbeat_consecutive_failures: typeof heartbeat.consecutive_failures === "number" ? heartbeat.consecutive_failures : 0,
+      heartbeat_failure_rate: typeof heartbeat.failure_rate === "number" ? heartbeat.failure_rate : 0,
       server_time_ms: serverTimeMs,
       ingestion_latency_ms: Date.now() - tStart,
       bridge_tier: verification.tier || "BACKEND_CONNECTED",

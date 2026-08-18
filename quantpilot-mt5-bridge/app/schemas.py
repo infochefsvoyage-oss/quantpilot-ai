@@ -140,6 +140,13 @@ class HeartbeatResponse(BaseModel):
     heartbeat_age_s: Optional[float] = None
     ea_id: Optional[str] = None
     version: Optional[str] = None
+    # POST monitoring (section 8) — GET exposes these but does NOT update them
+    post_success: int = 0
+    post_failures: int = 0
+    last_success_at: Optional[str] = None
+    last_failure_at: Optional[str] = None
+    consecutive_failures: int = 0
+    failure_rate: float = 0.0
 
 
 class ValidateOrderRequest(BaseModel):
