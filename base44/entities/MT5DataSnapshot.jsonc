@@ -45,7 +45,10 @@
       "type": "boolean"
     },
     "positions": {
-      "type": "object"
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
     },
     "positions_count": {
       "type": "number"
@@ -67,6 +70,46 @@
     },
     "heartbeat_fresh": {
       "type": "boolean"
+    },
+    "heartbeat_reason": {
+      "type": "string"
+    },
+    "heartbeat_age_s": {
+      "type": "number"
+    },
+    "last_heartbeat_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "heartbeat_post_success": {
+      "type": "number",
+      "default": 0
+    },
+    "heartbeat_post_failures": {
+      "type": "number",
+      "default": 0
+    },
+    "heartbeat_last_success_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "heartbeat_last_failure_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "heartbeat_consecutive_failures": {
+      "type": "number",
+      "default": 0
+    },
+    "heartbeat_failure_rate": {
+      "type": "number",
+      "default": 0
+    },
+    "server_time_ms": {
+      "type": "number"
+    },
+    "ingestion_latency_ms": {
+      "type": "number"
     },
     "bridge_tier": {
       "type": "string",
