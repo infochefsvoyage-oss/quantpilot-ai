@@ -71,7 +71,7 @@ export default async function(req) {
     const hb = heartbeatFields(heartbeat);
 
     // 4) M1 candle completeness — check for gaps > 1.5 × M1
-    const candles = (ratesJ.candles || []).map(c => ({
+    const candles = (ratesJ.candles || ratesJ.rates || []).map(c => ({
       time: c.time, open: c.open, high: c.high, low: c.low, close: c.close,
       tick_volume: c.tick_volume || 0,
     }));
