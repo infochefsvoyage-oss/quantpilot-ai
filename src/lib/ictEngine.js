@@ -286,11 +286,28 @@ export function generatePaperSignal(analysis, tick, timeframe = "M1") {
   const { components } = analysis;
   const { sweep, ob, fvg, premiumDiscount, session } = components;
   const entry = tick && tick.bid ? tick.bid : null;
-  const stopLoss = ob && ob.type === "BULLISH" ? ob.low : ob && ob.type === "BEARISH" ? ob.high : (sweep ? sweep.level : null);
-  if (!entry || !stopLoss) return null;
+  const direction = components.side;
+  if (!entry) return null;
+  // ── SL-Richtungslogik (PHASE SL-FIX) ──────────────────────────────────
+  // SL muss zwingend auf der korrekten Seite des Entry liegen:
+  //   LONG  → SL < ENTRY  (unter Entry)
+  //   SHORT → SL > ENTRY  (über Entry)
+  // OB-Typ muss zur Richtung passen (BULLISH OB für LONG, BEARISH OB für SHORT).
+  // Fallback auf Sweep-Level, falls dieser auf der korrekten Seite liegt.
+  let stopLoss = null;
+  if (direction === "LONG") {
+    if (ob && ob.type === "BULLISH" && ob.low != null && ob.low < entry) stopLoss = ob.low;
+    else if (sweep && sweep.level != null && sweep.level < entry) stopLoss = sweep.level;
+  } else {
+    if (ob && ob.type === "BEARISH" && ob.high != null && ob.high > entry) stopLoss = ob.high;
+    else if (sweep && sweep.level != null && sweep.level > entry) stopLoss = sweep.level;
+  }
+  if (!stopLoss) return null;
+  // ── Geometrie-Validierung (zwingend VOR Risk/RR) ──────────────────────
+  const slGeometryValid = direction === "LONG" ? stopLoss < entry : stopLoss > entry;
+  if (!slGeometryValid) return null;
   const risk = Math.abs(entry - stopLoss);
   if (risk === 0) return null;
-  const direction = components.side;
   const tp1 = direction === "LONG" ? entry + risk * 2 : entry - risk * 2;
   const tp2 = direction === "LONG" ? entry + risk * 3 : entry - risk * 3;
   const rr = computeRR(entry, stopLoss, tp1);

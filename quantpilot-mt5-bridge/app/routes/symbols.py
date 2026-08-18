@@ -28,11 +28,13 @@ def get_symbol_tick(symbol: str) -> SymbolTickResponse:
 def get_symbol_rates(
     symbol: str,
     timeframe: str = Query("M1", regex="^(M1|M5|M15|H1|H4|D1)$"),
-    count: int = Query(100, ge=10, le=500),
+    count: int = Query(100, ge=10, le=5000),
+    start: int = Query(0, ge=0, le=50000),
 ) -> RatesResponse:
     # Read-only OHLCV for ICT engine — no order, no execution.
+    # start=0 → most recent; start=N → N candles back (historical batch support).
     resolved, _ = discover_symbol(symbol)
-    candles = copy_rates(resolved, timeframe, count)
+    candles = copy_rates(resolved, timeframe, count, start)
     return RatesResponse(
         symbol=resolved, timeframe=timeframe, count=len(candles),
         candles=candles, server_time_ms=int(time.time() * 1000), available=True,

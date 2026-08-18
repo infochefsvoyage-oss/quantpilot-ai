@@ -114,8 +114,9 @@ def symbol_tick(name: str) -> dict:
     return tick._asdict()
 
 
-def copy_rates(name: str, timeframe: str = "M1", count: int = 100) -> list[dict]:
-    """Real mt5.copy_rates_from_pos – read-only OHLCV, no order."""
+def copy_rates(name: str, timeframe: str = "M1", count: int = 100, start: int = 0) -> list[dict]:
+    """Real mt5.copy_rates_from_pos – read-only OHLCV, no order.
+    start=0 → most recent candles; start=N → N candles back from now."""
     ensure_initialized()
     mt5 = _mt5()
     # Ensure symbol is in Market Watch — copy_rates_from_pos needs it
@@ -130,7 +131,7 @@ def copy_rates(name: str, timeframe: str = "M1", count: int = 100) -> list[dict]
         "D1": mt5.TIMEFRAME_D1,
     }
     tf = tf_map.get(timeframe, mt5.TIMEFRAME_M1)
-    rates = mt5.copy_rates_from_pos(name, tf, 0, count)
+    rates = mt5.copy_rates_from_pos(name, tf, start, count)
     if rates is None:
         raise BridgeError("MARKET_DATA_UNAVAILABLE", f"copy_rates None: {name} {timeframe}", 503, "copy_rates")
     if len(rates) == 0:
