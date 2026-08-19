@@ -13,6 +13,7 @@ import PanelCard from "@/components/PanelCard";
 import StatusBadge from "@/components/StatusBadge";
 import GateIndicator from "@/components/GateIndicator";
 import ICTPipelineMonitor from "@/components/ict/ICTPipelineMonitor";
+import APlusBacktestChart from "@/components/ict/APlusBacktestChart";
 
 export default function Dashboard() {
   const topSignal = sampleSignals[0];
@@ -227,6 +228,11 @@ export default function Dashboard() {
       {/* ICT Pipeline Read-Only Performance Monitor */}
       <div className="mt-4">
         <ICTPipelineMonitor />
+      </div>
+
+      {/* A+ Setup Historie — 20.000 Kerzen Backtest */}
+      <div className="mt-4">
+        <APlusBacktestChart />
       </div>
 
       {/* Disclaimer */}
