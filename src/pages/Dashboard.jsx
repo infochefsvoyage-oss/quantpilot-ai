@@ -14,6 +14,7 @@ import StatusBadge from "@/components/StatusBadge";
 import GateIndicator from "@/components/GateIndicator";
 import ICTPipelineMonitor from "@/components/ict/ICTPipelineMonitor";
 import APlusBacktestChart from "@/components/ict/APlusBacktestChart";
+import NYLongResearchStatus from "@/components/ict/NYLongResearchStatus";
 
 export default function Dashboard() {
   const topSignal = sampleSignals[0];
@@ -228,6 +229,11 @@ export default function Dashboard() {
       {/* ICT Pipeline Read-Only Performance Monitor */}
       <div className="mt-4">
         <ICTPipelineMonitor />
+      </div>
+
+      {/* A+ NY-LONG Research Status — Phase 2/3 Sequential Validation */}
+      <div className="mt-4">
+        <NYLongResearchStatus />
       </div>
 
       {/* A+ Setup Historie — 20.000 Kerzen Backtest */}
