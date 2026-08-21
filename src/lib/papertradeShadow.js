@@ -346,6 +346,26 @@ export function runPapertradeShadow(candles, options = {}) {
   const totalLossR = Math.abs(trades.filter(t => t.result === "LOSS").reduce((a, t) => a + t.r_multiple, 0));
   const profitFactor = totalLossR !== 0 ? Math.round((totalWinR / totalLossR) * 100) / 100 : (totalWinR > 0 ? 99 : 0);
 
+  // ── Extended metrics ───────────────────────────────────────────────
+  const rValues = trades.map(t => t.r_multiple).sort((a, b) => a - b);
+  const medianR = rValues.length > 0
+    ? (rValues.length % 2 === 0
+        ? Math.round(((rValues[rValues.length / 2 - 1] + rValues[rValues.length / 2]) / 2) * 1000) / 1000
+        : Math.round(rValues[Math.floor(rValues.length / 2)] * 1000) / 1000)
+    : 0;
+  const avgWinner = wins > 0 ? Math.round((totalWinR / wins) * 100) / 100 : 0;
+  const avgLoser = losses > 0 ? Math.round((totalLossR / losses) * 100) / 100 : 0;
+
+  let longestWinStreak = 0, longestLossStreak = 0, curWin = 0, curLoss = 0;
+  for (const t of trades) {
+    if (t.result === "WIN") { curWin++; curLoss = 0; if (curWin > longestWinStreak) longestWinStreak = curWin; }
+    else if (t.result === "LOSS") { curLoss++; curWin = 0; if (curLoss > longestLossStreak) longestLossStreak = curLoss; }
+    else { curWin = 0; curLoss = 0; }
+  }
+
+  // Dataset hash for reproducibility verification
+  const datasetHash = `${candles.length}_${candles[0]?.time || 0}_${candles[candles.length - 1]?.time || 0}`;
+
   return {
     run_id: runId,
     status: "COMPLETED",
@@ -355,6 +375,8 @@ export function runPapertradeShadow(candles, options = {}) {
     real_order_send: REAL_ORDER_SEND,
     start_time: candles[windowSize] ? new Date(candles[windowSize].time * 1000).toISOString() : null,
     end_time: candles[candles.length - 1] ? new Date(candles[candles.length - 1].time * 1000).toISOString() : null,
+    dataset_hash: datasetHash,
+    candle_count: candles.length,
     signals: signalCount,
     paper_entries: closedTrades,
     paper_exits: closedTrades,
@@ -364,8 +386,13 @@ export function runPapertradeShadow(candles, options = {}) {
     total_r: totalR,
     win_rate: winRate,
     mean_r: meanR,
+    median_r: medianR,
     max_dd: Math.round(maxDD * 100) / 100,
     profit_factor: profitFactor,
+    avg_winner: avgWinner,
+    avg_loser: avgLoser,
+    longest_win_streak: longestWinStreak,
+    longest_loss_streak: longestLossStreak,
     wins, losses, timeouts,
     trades,
     rejected_signals: rejectedSignals,

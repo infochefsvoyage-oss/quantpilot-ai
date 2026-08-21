@@ -51,14 +51,21 @@ export default function PapertradeShadowStatus() {
   const totalR = m.total_r ?? 0;
   const winRate = m.win_rate ?? 0;
   const meanR = m.mean_r ?? 0;
+  const medianR = m.median_r ?? 0;
   const maxDD = m.max_dd ?? 0;
   const profitFactor = m.profit_factor ?? 0;
+  const avgWinner = m.avg_winner ?? 0;
+  const avgLoser = m.avg_loser ?? 0;
+  const longestWinStreak = m.longest_win_streak ?? 0;
+  const longestLossStreak = m.longest_loss_streak ?? 0;
   const rejectedSignals = m.rejected_signals || 0;
   const strategyVersion = m.strategy_version || "NY_LONG_FROZEN_v1";
   const dataSource = m.data_source || "MT5_HISTORICAL";
   const runId = m.run_id || "—";
+  const datasetHash = m.dataset_hash || "—";
   const dataIntegrity = m.data_integrity || "N/A";
   const lookAhead = m.look_ahead_protection || "N/A";
+  const reproducibility = m.reproducibility || "N/A";
   const governance = m.governance || "PASS";
   const lastSignal = m.trades && m.trades.length > 0
     ? m.trades[m.trades.length - 1].timestamp
@@ -109,7 +116,23 @@ export default function PapertradeShadowStatus() {
         <StatBox icon={totalR >= 0 ? TrendingUp : TrendingDown} label="Total R" value={`${totalR >= 0 ? "+" : ""}${totalR}R`} sub={hasRun ? "" : "N/A"} color={hasRun ? (totalR >= 0 ? "profit" : "loss") : "muted"} />
         <StatBox icon={Crosshair} label="Win Rate" value={hasRun ? `${winRate}%` : "N/A"} sub={hasRun ? `${m.wins || 0}W / ${m.losses || 0}L` : "kein Run"} color={hasRun ? (winRate >= 50 ? "profit" : "loss") : "muted"} />
         <StatBox icon={Activity} label="Mean R" value={hasRun ? meanR : "N/A"} sub={hasRun ? "" : "N/A"} color={hasRun ? (meanR > 0 ? "profit" : "loss") : "muted"} />
+        <StatBox icon={Activity} label="Median R" value={hasRun ? medianR : "N/A"} sub={hasRun ? "" : "N/A"} color={hasRun ? (medianR > 0 ? "profit" : "loss") : "muted"} />
+      </div>
+
+      {/* Extended Metrics */}
+      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatBox icon={TrendingDown} label="Max DD" value={hasRun ? `${maxDD}R` : "N/A"} sub={hasRun ? "" : "N/A"} color={hasRun ? "warning" : "muted"} />
+        <StatBox icon={TrendingUp} label="Avg Winner" value={hasRun ? `+${avgWinner}R` : "N/A"} sub={hasRun ? `${m.wins || 0} Trades` : "N/A"} color={hasRun ? "profit" : "muted"} />
+        <StatBox icon={TrendingDown} label="Avg Loser" value={hasRun ? `-${avgLoser}R` : "N/A"} sub={hasRun ? `${m.losses || 0} Trades` : "N/A"} color={hasRun ? "loss" : "muted"} />
+        <StatBox icon={Activity} label="Profit Factor" value={hasRun ? profitFactor : "N/A"} sub={hasRun ? "" : "N/A"} color={hasRun ? (profitFactor >= 1 ? "profit" : "loss") : "muted"} />
+      </div>
+
+      {/* Streak Metrics */}
+      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatBox icon={TrendingUp} label="Longest Win Streak" value={hasRun ? longestWinStreak : "N/A"} sub={hasRun ? "Trades" : "N/A"} color={hasRun ? "profit" : "muted"} />
+        <StatBox icon={TrendingDown} label="Longest Loss Streak" value={hasRun ? longestLossStreak : "N/A"} sub={hasRun ? "Trades" : "N/A"} color={hasRun ? "loss" : "muted"} />
+        <StatBox icon={Database} label="Dataset Hash" value={hasRun ? `${datasetHash.substring(0, 20)}...` : "—"} sub={hasRun ? `${m.candle_count || 0} candles` : "N/A"} color="muted" />
+        <StatBox icon={Clock} label="Date Range" value={hasRun ? `${m.start_time ? new Date(m.start_time).toLocaleDateString("de-DE") : "—"} - ${m.end_time ? new Date(m.end_time).toLocaleDateString("de-DE") : "—"}` : "—"} sub={hasRun ? "" : "N/A"} color="muted" />
       </div>
 
       {/* Run Metadata */}
@@ -123,9 +146,10 @@ export default function PapertradeShadowStatus() {
       </div>
 
       {/* Integrity & Governance */}
-      <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
+      <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
         <IntegrityItem label="Data Integrity" value={dataIntegrity} color={dataIntegrity === "PASS" ? "profit" : dataIntegrity === "FAIL" ? "loss" : "muted"} />
         <IntegrityItem label="Look-Ahead Protection" value={lookAhead} color={lookAhead === "PASS" ? "profit" : lookAhead === "FAIL" ? "loss" : "muted"} />
+        <IntegrityItem label="Reproducibility" value={reproducibility} color={reproducibility === "PASS" ? "profit" : reproducibility === "FAIL" ? "loss" : "muted"} />
         <IntegrityItem label="Governance" value={governance} color={governance === "PASS" ? "profit" : "loss"} />
       </div>
 

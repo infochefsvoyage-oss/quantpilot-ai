@@ -8,7 +8,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { secrets } from 'base44:runtime';
 import { SYMBOL, fetchCandleHistory } from '../../shared/mt5Bridge.ts';
 
-const TOTAL_CANDLES = 20000;
+const DEFAULT_CANDLES = 20000;
+const MAX_CANDLES = 100000;
 const BATCH_SIZE = 5000;
 
 export default async function(req) {
@@ -16,6 +17,9 @@ export default async function(req) {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const body = await req.json().catch(() => ({}));
+    const totalCandles = Math.min(body.total_candles || DEFAULT_CANDLES, MAX_CANDLES);
 
     const bridgeUrl = secrets.get("MT5_BRIDGE_URL");
     const apiKey = secrets.get("MT5_BRIDGE_API_KEY");
@@ -26,7 +30,7 @@ export default async function(req) {
     const headers = apiKey ? { "X-API-Key": apiKey } : {};
     const base = bridgeUrl.replace(/\/+$/, "");
 
-    const result = await fetchCandleHistory(base, headers, SYMBOL, "M1", TOTAL_CANDLES, BATCH_SIZE);
+    const result = await fetchCandleHistory(base, headers, SYMBOL, "M1", totalCandles, BATCH_SIZE);
 
     // Compact format: [time, open, high, low, close] per candle — minimizes payload
     const candles = result.candles.map(c => [c.time, c.open, c.high, c.low, c.close]);
