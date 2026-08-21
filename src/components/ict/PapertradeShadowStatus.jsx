@@ -21,6 +21,11 @@ export default function PapertradeShadowStatus() {
       try {
         const logs = await base44.entities.AuditLog.list("-created_date", 50);
         // Prefer combined audit log (has all metrics in one record)
+        const extendedLogs = (logs || []).filter(
+          (l) => l.event === "PAPERTRADE_SHADOW_EXTENDED_RUN_V3" ||
+                   l.event === "PAPERTRADE_SHADOW_EXTENDED_RUN_V2" ||
+                   l.event === "PAPERTRADE_SHADOW_EXTENDED_RUN"
+        );
         const combinedLogs = (logs || []).filter(
           (l) => l.event === "PAPERTRADE_SHADOW_COMBINED_AUDIT"
         );
@@ -30,7 +35,7 @@ export default function PapertradeShadowStatus() {
         const runLogs = (logs || []).filter(
           (l) => l.event === "PAPERTRADE_SHADOW_RUN"
         );
-        let latest = combinedLogs[0] || auditLogs[0] || runLogs[0] || null;
+        let latest = extendedLogs[0] || combinedLogs[0] || auditLogs[0] || runLogs[0] || null;
         if (latest) {
           latest = await base44.entities.AuditLog.get(latest.id);
         }
@@ -103,7 +108,17 @@ export default function PapertradeShadowStatus() {
   const isSmallSample = m.small_sample ?? (sampleSize < 30);
   const rReconciliation = m.r_reconciliation || "N/A";
   const equityCurveCheck = m.equity_curve_check || "N/A";
-  const hasAudit = data?.event === "PAPERTRADE_SHADOW_TRADE_AUDIT" || data?.event === "PAPERTRADE_SHADOW_COMBINED_AUDIT";
+  const hasAudit = data?.event === "PAPERTRADE_SHADOW_TRADE_AUDIT" || data?.event === "PAPERTRADE_SHADOW_COMBINED_AUDIT" || data?.event?.startsWith("PAPERTRADE_SHADOW_EXTENDED_RUN");
+  const hasExtended = !!(data?.event?.startsWith("PAPERTRADE_SHADOW_EXTENDED_RUN"));
+  const dataClass = m.data_class || "HISTORICAL_SHADOW";
+  const isOos = m.is_oos || false;
+  const shadowAfterDiscovery = m.shadow_after_discovery || false;
+  const integrityGate = m.integrity_gate || {};
+  const temporalIntegrity = m.temporal_integrity || "N/A";
+  const strategyDataIntegrity = m.strategy_data_integrity || {};
+  const discoveryEnd = m.discovery_end || null;
+  const shadowStart = m.shadow_start || m.start_time || null;
+  const shadowEnd = m.shadow_end || m.end_time || null;
   const lastSignal = m.trades && m.trades.length > 0
     ? m.trades[m.trades.length - 1].timestamp
     : null;
@@ -139,6 +154,64 @@ export default function PapertradeShadowStatus() {
           </p>
         </div>
       </div>
+
+      {/* DATA CLASS Banner */}
+      <div className={`mb-3 rounded-md border px-3 py-2.5 ${isOos ? "border-profit/30 bg-profit/5" : "border-warning/30 bg-warning/10"}`}>
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+            <Database className="h-3.5 w-3.5" />
+            DATA CLASS
+          </span>
+          <span className={`font-mono text-sm font-bold ${isOos ? "text-profit" : "text-warning"}`}>
+            {dataClass === "INDEPENDENT_OOS" ? "INDEPENDENT OOS" : "HISTORICAL SHADOW · NOT INDEPENDENT OOS"}
+          </span>
+        </div>
+        {hasExtended && shadowStart && shadowEnd && (
+          <div className="mt-2 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+            <div className="rounded border border-border bg-secondary/30 px-2 py-1">
+              <span className="text-muted-foreground">Discovery End</span>
+              <div className="font-mono font-semibold text-foreground">{discoveryEnd ? new Date(discoveryEnd).toLocaleDateString("de-DE") : "—"}</div>
+            </div>
+            <div className="rounded border border-border bg-secondary/30 px-2 py-1">
+              <span className="text-muted-foreground">Shadow Start</span>
+              <div className="font-mono font-semibold text-foreground">{shadowStart ? new Date(shadowStart).toLocaleDateString("de-DE") : "—"}</div>
+            </div>
+            <div className="rounded border border-border bg-secondary/30 px-2 py-1">
+              <span className="text-muted-foreground">Shadow End</span>
+              <div className="font-mono font-semibold text-foreground">{shadowEnd ? new Date(shadowEnd).toLocaleDateString("de-DE") : "—"}</div>
+            </div>
+            <div className="rounded border border-border bg-secondary/30 px-2 py-1">
+              <span className="text-muted-foreground">Shadow After Discovery</span>
+              <div className={`font-mono font-semibold ${shadowAfterDiscovery ? "text-profit" : "text-warning"}`}>
+                {shadowAfterDiscovery ? "TRUE" : "FALSE (OVERLAP)"}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Integrity Gate */}
+      {hasExtended && (
+        <div className="mb-3 rounded-md border border-border bg-secondary/30 px-3 py-2">
+          <div className="mb-2 flex items-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs font-semibold text-primary">Integrity Gate</span>
+            <span className={`ml-auto rounded px-1.5 py-0.5 text-xs font-bold ${integrityGate.pass ? "bg-profit/10 text-profit" : "bg-loss/10 text-loss"}`}>
+              {integrityGate.pass ? "PASS" : "FAIL"}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            <IntegrityItem label="Chronological" value={integrityGate.chronological ? "TRUE" : "FALSE"} color={integrityGate.chronological ? "profit" : "loss"} />
+            <IntegrityItem label="Duplicates (raw)" value={`${integrityGate.duplicates_removed ?? 0}`} color="muted" />
+            <IntegrityItem label="OHLC Valid" value={integrityGate.ohlc_valid ? "TRUE" : "FALSE"} color={integrityGate.ohlc_valid ? "profit" : "loss"} />
+            <IntegrityItem label="No Future Data" value={integrityGate.no_future_data ? "TRUE" : "FALSE"} color={integrityGate.no_future_data ? "profit" : "loss"} />
+            <IntegrityItem label="Symbol" value={integrityGate.symbol || "XAUUSD"} color="profit" />
+            <IntegrityItem label="Timeframe" value={integrityGate.timeframe_match ? "M1 OK" : "M1 FAIL"} color={integrityGate.timeframe_match ? "profit" : "loss"} />
+            <IntegrityItem label="Temporal Integrity" value={temporalIntegrity} color={temporalIntegrity === "PASS" ? "profit" : "loss"} />
+            <IntegrityItem label="Strategy Version" value={strategyDataIntegrity.match ? "MATCH" : "MISMATCH"} color={strategyDataIntegrity.match ? "profit" : "loss"} />
+          </div>
+        </div>
+      )}
 
       {/* KPI Grid */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
