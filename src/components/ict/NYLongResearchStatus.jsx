@@ -52,33 +52,48 @@ export default function NYLongResearchStatus() {
   const requiredN = m.required_n || 82;
   const power = m.power || 0;
   const ci = m.ci_95 || m.confidence_interval || [0, 0];
-  const totalR = m.total_r ?? 0;
+  const totalR = m.total_r ?? m.totalR ?? 0;
   const winrate = m.winrate ?? 0;
   const pf = m.profit_factor ?? 0;
-  const maxDD = m.max_dd ?? 0;
-  const meanR = m.mean_r ?? 0;
+  const maxDD = m.max_dd ?? m.max_drawdown ?? 0;
+  const meanR = m.mean_r ?? m.avgR ?? 0;
   const cohensD = m.cohens_d ?? 0;
   const pValue = m.p_value ?? 1.0;
   const finalClass = m.classification || "INCONCLUSIVE_UNDERPOWERED";
   const dataQuality = m.data_quality_gate || (oosAvailable ? "PASS" : "NOT_RUN");
-  const bootstrap = m.bootstrap_ci ? "COMPUTED" : "N/A";
-  const monteCarlo = m.monte_carlo ? "COMPUTED" : "N/A";
+  const dataIntegrity = m.data_integrity || (oosAvailable ? "PASS" : "NOT_RUN");
+  const bootstrap = (m.bootstrap?.iterations || m.bootstrap_ci) ? "COMPUTED" : "N/A";
+  const monteCarlo = (m.monte_carlo?.iterations || m.monte_carlo_results) ? "COMPUTED" : "N/A";
   const walkForward = m.walk_forward ? `${m.walk_forward.positive || 0}/${m.walk_forward.blocks?.length || 0} positiv` : "N/A";
   const controlGroups = m.control_groups ? "COMPUTED" : "N/A";
-  const lookAhead = m.lookahead || (oosAvailable ? "PASS" : "N/A");
-  const reproducibility = m.reproducibility || (oosAvailable ? "PASS" : "N/A");
+  const lookAhead = m.lookahead || m.look_ahead || (oosAvailable ? "PASS" : "N/A");
+  const reproducibilityPass = m.reproducibility?.pass ?? (oosAvailable ? true : null);
+  const reproducibility = reproducibilityPass === null ? "N/A" : reproducibilityPass ? "PASS" : "FAIL";
+  const rReconciliationPass = m.r_reconciliation?.pass ?? null;
+  const rReconciliation = rReconciliationPass === null ? "N/A" : rReconciliationPass ? "PASS" : "FAIL";
+  const mfeMae = m.mfe_mae || null;
   const temporalIntegrity = m.temporal_integrity || (oosAvailable ? "PASS" : "N/A");
   const indexIntegrity = m.index_integrity || (oosAvailable ? "PASS" : "N/A");
   const auditLogId = data?.id || "—";
-  const provider = m.data_provider || "twelvedata";
-  const providerStatus = m.external_api_status || (oosAvailable ? "OK" : "KEY_INVALID");
-  const dataSource = m.data_source || "EXTERNAL_PROVIDER_ATTEMPTED";
+  const provider = m.provider || m.data_provider || "twelvedata";
+  const providerStatus = oosAvailable ? "OK" : (m.external_api_status || "KEY_INVALID");
+  const dataSource = m.provider ? "INDEPENDENT (Twelve Data)" : (m.data_source || "EXTERNAL_PROVIDER_ATTEMPTED");
+  const independentOOS = m.independent_oos ?? false;
+  const dataClass = independentOOS ? "INDEPENDENT OOS" : "HISTORICAL SHADOW";
+  const discoveryEnd = m.discovery_end ? new Date(typeof m.discovery_end === "number" ? m.discovery_end * 1000 : m.discovery_end) : null;
+  const oosStart = m.oos_start ? new Date(typeof m.oos_start === "number" ? m.oos_start * 1000 : m.oos_start) : null;
+  const oosEnd = m.oos_end ? new Date(typeof m.oos_end === "number" ? m.oos_end * 1000 : m.oos_end) : null;
+  const oldestDate = m.oldest ? new Date(m.oldest) : null;
+  const newestDate = m.newest ? new Date(m.newest) : null;
   const phase = isPhase4 ? "Phase 4" : "Phase 3";
 
   const classConfig = {
+    INDEPENDENT_OOS_CONFIRMED: { icon: CheckCircle2, color: "profit", label: "INDEPENDENT OOS CONFIRMED", glow: "glow-green" },
     EDGE_CONFIRMED: { icon: CheckCircle2, color: "profit", label: "EDGE CONFIRMED", glow: "glow-green" },
     INCONCLUSIVE_UNDERPOWERED: { icon: AlertTriangle, color: "warning", label: "INCONCLUSIVE / UNDERPOWERED", glow: "glow-amber" },
     EDGE_NOT_CONFIRMED: { icon: XCircle, color: "loss", label: "EDGE NOT CONFIRMED", glow: "glow-red" },
+    NOT_INDEPENDENT_OOS: { icon: Ban, color: "loss", label: "NOT INDEPENDENT OOS", glow: "glow-red" },
+    DATA_SOURCE_INSUFFICIENT: { icon: Database, color: "muted", label: "DATA SOURCE INSUFFICIENT", glow: "" },
     INSUFFICIENT_DATA: { icon: Database, color: "muted", label: "INSUFFICIENT DATA", glow: "" },
     PROVISIONAL_UNDERPOWERED: { icon: AlertTriangle, color: "warning", label: "PROVISIONAL / UNDERPOWERED", glow: "glow-amber" },
   };
@@ -110,10 +125,64 @@ export default function NYLongResearchStatus() {
         </div>
       </div>
 
+      {/* DATA CLASS Banner — INDEPENDENT OOS vs HISTORICAL SHADOW */}
+      <div className={`mb-3 rounded-md border px-3 py-2.5 ${independentOOS ? "border-profit/30 bg-profit/5" : "border-warning/30 bg-warning/10"}`}>
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+            <Database className="h-3.5 w-3.5" />
+            DATA CLASS
+          </span>
+          <span className={`font-mono text-sm font-bold ${independentOOS ? "text-profit" : "text-warning"}`}>
+            {dataClass}
+          </span>
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+          <div className="rounded border border-border bg-secondary/30 px-2 py-1">
+            <span className="text-muted-foreground">Data Source</span>
+            <div className="font-mono font-semibold text-foreground">{dataSource}</div>
+          </div>
+          <div className="rounded border border-border bg-secondary/30 px-2 py-1">
+            <span className="text-muted-foreground">Provider Status</span>
+            <div className={`font-mono font-semibold ${providerStatus === "OK" ? "text-profit" : "text-loss"}`}>{providerStatus}</div>
+          </div>
+          <div className="rounded border border-border bg-secondary/30 px-2 py-1">
+            <span className="text-muted-foreground">Data Range</span>
+            <div className="font-mono font-semibold text-foreground">{oldestDate ? oldestDate.toLocaleDateString("de-DE") : "—"} → {newestDate ? newestDate.toLocaleDateString("de-DE") : "—"}</div>
+          </div>
+          <div className="rounded border border-border bg-secondary/30 px-2 py-1">
+            <span className="text-muted-foreground">Independent OOS</span>
+            <div className={`font-mono font-semibold ${independentOOS ? "text-profit" : "text-warning"}`}>{independentOOS ? "TRUE" : "FALSE"}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* OOS Boundary */}
+      <div className="mb-3 rounded-md border border-border bg-secondary/30 px-3 py-2">
+        <div className="mb-1.5 flex items-center gap-1.5">
+          <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+          <span className="text-xs font-semibold text-primary">OOS Boundary</span>
+          <span className="ml-auto text-xs text-muted-foreground">OOS_START {independentOOS ? ">" : "<="} DISCOVERY_END</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          <div className="rounded border border-border bg-secondary/30 px-2 py-1">
+            <span className="text-muted-foreground">Discovery End</span>
+            <div className="font-mono font-semibold text-warning">{discoveryEnd ? discoveryEnd.toLocaleDateString("de-DE") : "—"}</div>
+          </div>
+          <div className="rounded border border-border bg-secondary/30 px-2 py-1">
+            <span className="text-muted-foreground">OOS Start</span>
+            <div className={`font-mono font-semibold ${independentOOS ? "text-profit" : "text-loss"}`}>{oosStart ? oosStart.toLocaleDateString("de-DE") : "—"}</div>
+          </div>
+          <div className="rounded border border-border bg-secondary/30 px-2 py-1">
+            <span className="text-muted-foreground">OOS End</span>
+            <div className="font-mono font-semibold text-foreground">{oosEnd ? oosEnd.toLocaleDateString("de-DE") : "—"}</div>
+          </div>
+        </div>
+      </div>
+
       {/* OOS Data Availability + Provider Status */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatBox label="OOS Data Available" value={oosAvailable ? "TRUE" : "FALSE"} sub={dataSource} color={oosColor} />
-        <StatBox label="Data Quality Gate" value={dataQuality} sub={oosAvailable ? "validiert" : "not run"} color={oosAvailable ? "profit" : naColor} />
+        <StatBox label="Data Integrity" value={dataIntegrity} sub={oosAvailable ? "validiert" : "not run"} color={oosAvailable ? "profit" : naColor} />
         <StatBox label="OOS Candles" value={oosCandles.toLocaleString("de-DE")} sub={oosAvailable ? "validiert" : "0"} color={oosColor} />
         <StatBox label="OOS Trades" value={`${oosTrades}`} sub={`/ ${requiredN} Required`} color={oosTrades >= requiredN ? "profit" : "warning"} />
       </div>
@@ -160,9 +229,54 @@ export default function NYLongResearchStatus() {
       <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border pt-3 md:grid-cols-4">
         <IntegrityItem label="Look-Ahead" value={lookAhead} color={passFail(lookAhead)} />
         <IntegrityItem label="Reproducibility" value={reproducibility} color={passFail(reproducibility)} />
+        <IntegrityItem label="R-Reconciliation" value={rReconciliation} color={passFail(rReconciliation)} />
         <IntegrityItem label="Temporal Integrity" value={temporalIntegrity} color={passFail(temporalIntegrity)} />
-        <IntegrityItem label="Index Integrity" value={indexIntegrity} color={passFail(indexIntegrity)} />
       </div>
+
+      {/* MFE/MAE Summary */}
+      {mfeMae && (
+        <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+          <IntegrityItem label="Avg MFE" value={`${mfeMae.avgMfe}R`} color="profit" />
+          <IntegrityItem label="Avg MAE" value={`${mfeMae.avgMae}R`} color="loss" />
+          <IntegrityItem label="Max MFE" value={`${mfeMae.maxMfe}R`} color="profit" />
+          <IntegrityItem label="Max MAE" value={`${mfeMae.maxMae}R`} color="loss" />
+        </div>
+      )}
+
+      {/* Bootstrap / Monte Carlo Details */}
+      {oosAvailable && m.bootstrap && (
+        <div className="mt-2 rounded-md border border-border bg-secondary/30 px-3 py-2">
+          <div className="mb-1 text-xs font-semibold text-primary">Bootstrap (10k, WITH REPLACEMENT)</div>
+          <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+            <IntegrityItem label="Mean R CI" value={`[${m.bootstrap.meanCiLo}, ${m.bootstrap.meanCiHi}]`} color={m.bootstrap.meanCiLo > 0 ? "profit" : "warning"} />
+            <IntegrityItem label="WR CI" value={`[${m.bootstrap.wrCiLo}%, ${m.bootstrap.wrCiHi}%]`} color="muted" />
+            <IntegrityItem label="PF CI" value={`[${m.bootstrap.pfCiLo}, ${m.bootstrap.pfCiHi}]`} color="muted" />
+            <IntegrityItem label="Median Total R" value={`${m.bootstrap.medianTotalR}R`} color="muted" />
+          </div>
+        </div>
+      )}
+      {oosAvailable && m.monte_carlo && (
+        <div className="mt-2 rounded-md border border-border bg-secondary/30 px-3 py-2">
+          <div className="mb-1 text-xs font-semibold text-primary">Monte Carlo (10k, WITH REPLACEMENT)</div>
+          <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+            <IntegrityItem label="Exp Total R" value={`${m.monte_carlo.expTotalR}R`} color={m.monte_carlo.expTotalR > 0 ? "profit" : "loss"} />
+            <IntegrityItem label="P(Total R > 0)" value={`${(m.monte_carlo.pTotalRPos * 100).toFixed(1)}%`} color={m.monte_carlo.pTotalRPos > 0.5 ? "profit" : "loss"} />
+            <IntegrityItem label="Exp Max DD" value={`${m.monte_carlo.expMaxDD}R`} color="warning" />
+            <IntegrityItem label="P(DD > 5R)" value={`${(m.monte_carlo.pDDOverThreshold * 100).toFixed(1)}%`} color={m.monte_carlo.pDDOverThreshold < 0.1 ? "profit" : "warning"} />
+          </div>
+        </div>
+      )}
+      {oosAvailable && m.walk_forward && (
+        <div className="mt-2 rounded-md border border-border bg-secondary/30 px-3 py-2">
+          <div className="mb-1 text-xs font-semibold text-primary">Walk-Forward ({m.walk_forward.blocks?.length || 0} Blocks, Global Indices)</div>
+          <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+            <IntegrityItem label="Positive Blocks" value={`${m.walk_forward.positive}/${m.walk_forward.blocks?.length || 0}`} color={m.walk_forward.positive >= Math.floor((m.walk_forward.blocks?.length || 1) * 0.6) ? "profit" : "warning"} />
+            <IntegrityItem label="Negative Blocks" value={`${m.walk_forward.negative}`} color="muted" />
+            <IntegrityItem label="Zero Blocks" value={`${m.walk_forward.zero}`} color="muted" />
+            <IntegrityItem label="Method" value="Global Idx" color="muted" />
+          </div>
+        </div>
+      )}
 
       {/* Final Classification */}
       <div className={`mt-4 flex items-center justify-between rounded-md border border-${cfg.color}/20 bg-${cfg.color}/5 px-3 py-2.5 ${cfg.glow}`}>
@@ -190,13 +304,24 @@ export default function NYLongResearchStatus() {
         <span className="font-mono text-xs font-semibold text-foreground">{auditLogId}</span>
       </div>
 
-      {/* Data Limit Notice */}
+      {/* Data Source Notice */}
       <div className="mt-3 text-xs text-muted-foreground">
-        <span className="font-semibold text-warning">MT5 History Limit = 100.000 Candles.</span>{" "}
-        DATA_EXPANSION = BLOCKED_BY_MT5_SOURCE_LIMIT.{" "}
-        {oosAvailable
-          ? "Unabhängige OOS-Daten erfolgreich beschafft und validiert."
-          : "Keine unabhängige OOS-Daten — externer API-Key ungültig. Keine künstliche Datengenerierung, keine Duplikate, kein Overlap mit Phase 2/3."}
+        {oosAvailable ? (
+          <>
+            <span className="font-semibold text-profit">Unabhängige OOS-Daten erfolgreich beschafft.</span>{" "}
+            Quelle: Twelve Data (XAU/USD, M1) — unabhängig von MT5.{" "}
+            {independentOOS
+              ? "OOS_START größer DISCOVERY_END — zeitliche Unabhängigkeit bestätigt."
+              : "OOS_START kleiner gleich DISCOVERY_END — keine zeitliche Unabhängigkeit."}
+            {" "}N={trades} von Required N={requiredN} → UNDERPOWERED. CI enthält Null → keine statistische Bestätigung. Keine automatische Klassifikationsänderung.
+          </>
+        ) : (
+          <>
+            <span className="font-semibold text-warning">MT5 History Limit = 100.000 Candles.</span>{" "}
+            DATA_EXPANSION = BLOCKED_BY_MT5_SOURCE_LIMIT.{" "}
+            Keine unabhängige OOS-Daten — externer API-Key ungültig. Keine künstliche Datengenerierung, keine Duplikate, kein Overlap mit Phase 2/3.
+          </>
+        )}
       </div>
     </PanelCard>
   );

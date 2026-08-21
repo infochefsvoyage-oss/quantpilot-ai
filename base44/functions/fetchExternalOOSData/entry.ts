@@ -11,53 +11,10 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { secrets } from 'base44:runtime';
 import { validateCandleData, toCompactCandles, type Candle } from '../../shared/forexDataQuality.ts';
+import { fetchTwelveDataBatch, fmtDateTime, sleep, resolveApiKeyAndProvider, BATCH_SIZE, THROTTLE_MS } from '../../shared/twelveDataClient.ts';
 
-const TWELVEDATA_BASE = "https://api.twelvedata.com/time_series";
 const ALPHAVANTAGE_BASE = "https://www.alphavantage.co/query";
-const BATCH_SIZE = 5000;
 const MAX_BATCHES = 4; // 20k candles per call (rate-limit safe)
-const THROTTLE_MS = 8000; // Twelve Data free: 8 req/min
-
-function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
-
-function fmtDateTime(unixSec: number): string {
-  const d = new Date(unixSec * 1000);
-  return d.toISOString().replace("T", " ").substring(0, 19);
-}
-
-async function fetchTwelveDataBatch(apiKey: string, endDate: string | null): Promise<Candle[]> {
-  const params = new URLSearchParams({
-    symbol: "XAU/USD",
-    interval: "1min",
-    outputsize: String(BATCH_SIZE),
-    apikey: apiKey,
-    format: "JSON",
-  });
-  if (endDate) params.set("end_date", endDate);
-
-  const url = `${TWELVEDATA_BASE}?${params}`;
-  const res = await fetch(url, { headers: { "Accept": "application/json" } });
-  const body = await res.json();
-
-  if (body.status === "error") {
-    throw new Error(`Twelve Data error: ${body.message || body.code || "unknown"}`);
-  }
-  if (!body.values || !Array.isArray(body.values)) {
-    throw new Error("Twelve Data: unexpected response format");
-  }
-
-  // values are most-recent-first; convert to chronological order
-  return body.values
-    .map((v: any) => ({
-      time: Math.floor(new Date(v.datetime + " UTC").getTime() / 1000),
-      open: parseFloat(v.open),
-      high: parseFloat(v.high),
-      low: parseFloat(v.low),
-      close: parseFloat(v.close),
-    }))
-    .filter((c: Candle) => isFinite(c.time) && isFinite(c.open))
-    .sort((a: Candle, b: Candle) => a.time - b.time);
-}
 
 async function fetchAlphaVantageFull(apiKey: string): Promise<Candle[]> {
   const params = new URLSearchParams({
@@ -94,21 +51,10 @@ export default async function(req: Request): Promise<Response> {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    let apiKey = secrets.get("FOREX_DATA_API_KEY");
-    let providerRaw = (secrets.get("FOREX_DATA_PROVIDER") || "twelvedata").toLowerCase();
-
-    // Handle edge case: provider secret contains a full URL with embedded apikey
-    if (providerRaw.includes("twelvedata.com")) {
-      const keyMatch = providerRaw.match(/[?&]apikey=([^&]+)/);
-      if (keyMatch && !apiKey) apiKey = keyMatch[1];
-      providerRaw = "twelvedata";
-    } else if (providerRaw.includes("alphavantage")) {
-      const keyMatch = providerRaw.match(/[?&]apikey=([^&]+)/);
-      if (keyMatch && !apiKey) apiKey = keyMatch[1];
-      providerRaw = "alphavantage";
-    }
-
-    const provider = providerRaw === "alphavantage" ? "alphavantage" : "twelvedata";
+    const { apiKey, provider } = resolveApiKeyAndProvider(
+      secrets.get("FOREX_DATA_API_KEY"),
+      secrets.get("FOREX_DATA_PROVIDER")
+    );
 
     if (!apiKey) {
       return Response.json({
