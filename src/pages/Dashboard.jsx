@@ -15,6 +15,7 @@ import GateIndicator from "@/components/GateIndicator";
 import ICTPipelineMonitor from "@/components/ict/ICTPipelineMonitor";
 import APlusBacktestChart from "@/components/ict/APlusBacktestChart";
 import NYLongResearchStatus from "@/components/ict/NYLongResearchStatus";
+import PapertradeShadowStatus from "@/components/ict/PapertradeShadowStatus";
 
 export default function Dashboard() {
   const topSignal = sampleSignals[0];
@@ -234,6 +235,11 @@ export default function Dashboard() {
       {/* A+ NY-LONG Research Status — Phase 2/3 Sequential Validation */}
       <div className="mt-4">
         <NYLongResearchStatus />
+      </div>
+
+      {/* Papertrade Shadow Status — Technical Verification (NOT OOS Evidence) */}
+      <div className="mt-4">
+        <PapertradeShadowStatus />
       </div>
 
       {/* A+ Setup Historie — 20.000 Kerzen Backtest */}
