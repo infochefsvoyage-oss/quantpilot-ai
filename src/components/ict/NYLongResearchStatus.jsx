@@ -217,12 +217,12 @@ export default function NYLongResearchStatus() {
         <StatBox label="Control Groups" value={controlGroups} sub={oosAvailable ? "NY-S/LON-L/LON-S" : "no data"} color={oosAvailable ? "profit" : naColor} />
       </div>
 
-      {/* Required N / Current N */}
+      {/* Required N / Current N / Remaining N / Power */}
       <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatBox label="Required N" value="82" sub="FROZEN" color="primary" />
         <StatBox label="Current N" value={`${trades}`} sub={trades >= requiredN ? "ausreichend" : "underpowered"} color={trades >= requiredN ? "profit" : "warning"} />
-        <StatBox label="Winrate" value={oosAvailable ? `${winrate}%` : "N/A"} sub={oosAvailable ? "" : "no data"} color={oosAvailable ? (winrate >= 50 ? "profit" : "loss") : naColor} />
-        <StatBox label="Edge" value="NOT CONFIRMED" sub="CANDIDATE" color="warning" />
+        <StatBox label="Remaining N" value={`${Math.max(0, requiredN - trades)}`} sub={trades >= requiredN ? "erfüllt" : "ausständig"} color={trades >= requiredN ? "profit" : "warning"} />
+        <StatBox label="Power" value={power.toFixed(3)} sub="Target: 0.80" color={power >= 0.8 ? "profit" : "warning"} />
       </div>
 
       {/* Integrity Checks */}

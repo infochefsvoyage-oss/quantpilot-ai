@@ -13,7 +13,7 @@ import { validateCandleData } from '../../shared/forexDataQuality.ts';
 import { runPhase4Validation } from '../../shared/phase4Engine.ts';
 import { fetchTwelveDataBatch, fmtDateTime, sleep, resolveApiKeyAndProvider, BATCH_SIZE, THROTTLE_MS } from '../../shared/twelveDataClient.ts';
 
-const MAX_BATCHES = 10;
+const MAX_BATCHES = 12;
 
 export default async function(req: Request): Promise<Response> {
   try {
@@ -31,7 +31,7 @@ export default async function(req: Request): Promise<Response> {
     }
 
     const body = await req.json().catch(() => ({}));
-    const maxBatches = Math.min(body.max_batches || MAX_BATCHES, 10);
+    const maxBatches = Math.min(body.max_batches || MAX_BATCHES, 12);
     const discoveryEndUnix = body.discovery_end_unix || null;
 
     // ── Fetch candles from Twelve Data ─────────────────────────────────
@@ -98,9 +98,10 @@ export default async function(req: Request): Promise<Response> {
     const validation = runPhase4Validation(deduped, discoveryEndUnix);
 
     // ── Build AuditLog ───────────────────────────────────────────────
+    const remainingN = Math.max(0, 82 - (validation.trade_count || 0));
     const auditMetadata = {
       timestamp: new Date().toISOString(),
-      phase: "PHASE_4_INDEPENDENT_OOS",
+      phase: "PHASE_4_INDEPENDENT_OOS_EXTENSION",
       provider: "twelvedata",
       symbol: "XAU/USD",
       timeframe: "1min",
@@ -122,15 +123,16 @@ export default async function(req: Request): Promise<Response> {
       independent_oos: independentOOS,
       data_integrity: dataIntegrityPass ? "PASS" : "FAIL",
       data_quality_gate: quality.pass ? "PASS" : "FAIL",
+      remaining_n: remainingN,
       ...validation,
     };
 
     const auditLog = await base44.entities.AuditLog.create({
       event: "NY_LONG_PHASE_4_OOS_VALIDATION",
-      category: "GOVERNANCE",
+      category: "SYSTEM",
       severity: "INFO",
       actor: "phase4_pipeline",
-      details: `Phase 4 Independent OOS Validation — ${validation.classification} — ${validation.trade_count} trades — ${validation.oos_candle_count} OOS candles`,
+      details: `A+ NY-LONG Phase 4 Independent OOS Extension — ${validation.classification} — ${validation.trade_count} trades — ${validation.oos_candle_count} OOS candles — Remaining N: ${remainingN}`,
       metadata: auditMetadata,
     });
 
