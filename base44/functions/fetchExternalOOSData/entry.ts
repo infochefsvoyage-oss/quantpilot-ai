@@ -122,6 +122,7 @@ export default async function(req: Request): Promise<Response> {
     const body = await req.json().catch(() => ({}));
     const endDateInput = body.end_date || null; // ISO datetime for pagination
     const maxBatches = Math.min(body.max_batches || MAX_BATCHES, 6);
+    const discoveryRange = body.discovery_range || null; // { start: unix, end: unix } for overlap check
 
     let allCandles: Candle[] = [];
     let sourceInfo: any = { provider, symbol: "XAU/USD", timeframe: "M1" };
@@ -154,8 +155,13 @@ export default async function(req: Request): Promise<Response> {
     }
     deduped.sort((a, b) => a.time - b.time);
 
-    // ── Data quality gate ──────────────────────────────────────────────
-    const quality = validateCandleData(deduped);
+    // ── Data quality gate (with symbol/timeframe/overlap checks) ──────
+    const quality = validateCandleData(deduped, {
+      expectedSymbol: "XAUUSD",
+      expectedTimeframe: "M1",
+      discoveryRange,
+      minCandles: 30000,
+    });
 
     sourceInfo.date_range = {
       start: quality.oldest_candle ? new Date(quality.oldest_candle * 1000).toISOString() : null,
@@ -174,10 +180,15 @@ export default async function(req: Request): Promise<Response> {
       candles: toCompactCandles(deduped),
     });
   } catch (error) {
+    // Detect provider auth errors → deterministic PROVIDER_AUTH_INVALID
+    const msg = error.message || "";
+    const isAuthError = msg.includes("apikey") || msg.includes("API key") ||
+                        msg.includes("incorrect") || msg.includes("unauthorized") ||
+                        msg.includes("Invalid API") || msg.includes("401");
     return Response.json({
       oos_data_available: false,
-      status: "ERROR",
-      error: error.message,
-    }, { status: 500 });
+      status: isAuthError ? "PROVIDER_AUTH_INVALID" : "ERROR",
+      error: isAuthError ? "Provider credentials invalid or rejected" : msg,
+    }, { status: isAuthError ? 401 : 500 });
   }
 }
