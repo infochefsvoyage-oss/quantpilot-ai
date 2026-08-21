@@ -181,7 +181,10 @@ export default async function(req: Request): Promise<Response> {
     });
   } catch (error) {
     // Detect provider auth errors → deterministic PROVIDER_AUTH_INVALID
-    const msg = error.message || "";
+    // Sanitize: API key must NEVER appear in logs, responses, or exceptions
+    const rawMsg = error.message || "";
+    const msg = rawMsg.replace(/apikey=[^\s&"']+/gi, "apikey=***REDACTED***")
+                      .replace(/api_key=[^\s&"']+/gi, "api_key=***REDACTED***");
     const isAuthError = msg.includes("apikey") || msg.includes("API key") ||
                         msg.includes("incorrect") || msg.includes("unauthorized") ||
                         msg.includes("Invalid API") || msg.includes("401");
