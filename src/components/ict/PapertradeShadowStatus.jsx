@@ -20,10 +20,21 @@ export default function PapertradeShadowStatus() {
     (async () => {
       try {
         const logs = await base44.entities.AuditLog.list("-created_date", 50);
-        const ptLogs = (logs || []).filter(
+        // Prefer combined audit log (has all metrics in one record)
+        const combinedLogs = (logs || []).filter(
+          (l) => l.event === "PAPERTRADE_SHADOW_COMBINED_AUDIT"
+        );
+        const auditLogs = (logs || []).filter(
+          (l) => l.event === "PAPERTRADE_SHADOW_TRADE_AUDIT"
+        );
+        const runLogs = (logs || []).filter(
           (l) => l.event === "PAPERTRADE_SHADOW_RUN"
         );
-        if (active) { setData(ptLogs[0] || null); setLoading(false); }
+        let latest = combinedLogs[0] || auditLogs[0] || runLogs[0] || null;
+        if (latest) {
+          latest = await base44.entities.AuditLog.get(latest.id);
+        }
+        if (active) { setData(latest); setLoading(false); }
       } catch {
         if (active) { setData(null); setLoading(false); }
       }
@@ -67,6 +78,32 @@ export default function PapertradeShadowStatus() {
   const lookAhead = m.look_ahead_protection || "N/A";
   const reproducibility = m.reproducibility || "N/A";
   const governance = m.governance || "PASS";
+
+  // Audit-level metrics (from PAPERTRADE_SHADOW_TRADE_AUDIT)
+  const rDist = m.r_distribution || {};
+  const mfeStats = m.mfe_stats || {};
+  const maeStats = m.mae_stats || {};
+  const timeStats = m.time_in_trade_stats || {};
+  const bootstrap = m.bootstrap || {};
+  const stdDevR = rDist.std_dev ?? 0;
+  const minR = rDist.min ?? 0;
+  const maxR = rDist.max ?? 0;
+  const q1R = rDist.q1 ?? 0;
+  const q3R = rDist.q3 ?? 0;
+  const recoveryTime = m.recovery_time_trades ?? 0;
+  const avgMFE = mfeStats.avg ?? 0;
+  const medianMFE = mfeStats.median ?? 0;
+  const avgMAE = maeStats.avg ?? 0;
+  const medianMAE = maeStats.median ?? 0;
+  const avgTimeInTrade = timeStats.avg ?? 0;
+  const bootstrapCI = bootstrap.ci_95 || [0, 0];
+  const bootstrapMean = bootstrap.mean ?? 0;
+  const probPositive = bootstrap.prob_positive ?? 0;
+  const sampleSize = m.sample_size || closedTrades;
+  const isSmallSample = m.small_sample ?? (sampleSize < 30);
+  const rReconciliation = m.r_reconciliation || "N/A";
+  const equityCurveCheck = m.equity_curve_check || "N/A";
+  const hasAudit = data?.event === "PAPERTRADE_SHADOW_TRADE_AUDIT" || data?.event === "PAPERTRADE_SHADOW_COMBINED_AUDIT";
   const lastSignal = m.trades && m.trades.length > 0
     ? m.trades[m.trades.length - 1].timestamp
     : null;
@@ -135,6 +172,69 @@ export default function PapertradeShadowStatus() {
         <StatBox icon={Clock} label="Date Range" value={hasRun ? `${m.start_time ? new Date(m.start_time).toLocaleDateString("de-DE") : "—"} - ${m.end_time ? new Date(m.end_time).toLocaleDateString("de-DE") : "—"}` : "—"} sub={hasRun ? "" : "N/A"} color="muted" />
       </div>
 
+      {/* R-Distribution (Audit) */}
+      {hasAudit && (
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <StatBox icon={Activity} label="Std Dev R" value={stdDevR} sub="Volatilität" color="warning" />
+          <StatBox icon={TrendingDown} label="Min R" value={`${minR}R`} sub="schlechtester Trade" color="loss" />
+          <StatBox icon={TrendingUp} label="Max R" value={`+${maxR}R`} sub="bester Trade" color="profit" />
+          <StatBox icon={Activity} label="Recovery Time" value={`${recoveryTime} Trades`} sub="DD → Peak" color="muted" />
+        </div>
+      )}
+
+      {/* MFE / MAE (Audit) */}
+      {hasAudit && (
+        <>
+          <div className="mt-4 border-t border-border pt-3">
+            <h4 className="text-xs font-semibold text-muted-foreground mb-2">MFE / MAE Analyse (Diagnose — keine Parameteränderung)</h4>
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <StatBox icon={TrendingUp} label="Avg MFE" value={`+${avgMFE}R`} sub="Maximum Favorable Excursion" color="profit" />
+            <StatBox icon={TrendingUp} label="Median MFE" value={`+${medianMFE}R`} sub="" color="profit" />
+            <StatBox icon={TrendingDown} label="Avg MAE" value={`-${avgMAE}R`} sub="Maximum Adverse Excursion" color="loss" />
+            <StatBox icon={TrendingDown} label="Median MAE" value={`-${medianMAE}R`} sub="" color="loss" />
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <StatBox icon={Clock} label="Avg Time in Trade" value={`${avgTimeInTrade} Bars`} sub="M1 Candles" color="muted" />
+            <StatBox icon={TrendingUp} label="MFE Winners" value={`+${mfeStats.winners_avg ?? 0}R`} sub="Gewinner MFE" color="profit" />
+            <StatBox icon={TrendingDown} label="MAE Losers" value={`-${maeStats.losers_avg ?? 0}R`} sub="Verlierer MAE" color="loss" />
+            <StatBox icon={Activity} label="Q1 / Q3 R" value={`${q1R} / ${q3R}R`} sub="Quartile" color="muted" />
+          </div>
+        </>
+      )}
+
+      {/* Bootstrap (Audit) */}
+      {hasAudit && (
+        <div className="mt-3 rounded-md border border-primary/20 bg-primary/5 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Activity className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs font-semibold text-primary">Bootstrap (10.000 Resamples)</span>
+            <span className="rounded bg-warning/10 px-1.5 py-0.5 text-xs font-medium text-warning">SHADOW DATA · NOT INDEPENDENT OOS</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <StatBox icon={Activity} label="Bootstrap Mean" value={`+${bootstrapMean}R`} sub="resampled" color={bootstrapMean > 0 ? "profit" : "loss"} />
+            <StatBox icon={Activity} label="95% CI" value={`[${bootstrapCI[0]}, ${bootstrapCI[1]}]`} sub="R-Erwwartung" color={bootstrapCI[0] > 0 ? "profit" : "warning"} />
+            <StatBox icon={TrendingUp} label="P(positive)" value={`${(probPositive * 100).toFixed(1)}%`} sub="Wahrscheinlichkeit" color={probPositive > 0.5 ? "profit" : "loss"} />
+            <StatBox icon={Activity} label="Equity Check" value={equityCurveCheck} sub="Total R / Max DD" color={equityCurveCheck === "PASS" ? "profit" : "loss"} />
+          </div>
+        </div>
+      )}
+
+      {/* Small Sample Warning */}
+      {hasAudit && isSmallSample && (
+        <div className="mt-3 rounded-md border border-warning/30 bg-warning/10 px-3 py-2">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-warning mt-0.5" />
+            <div>
+              <p className="text-xs font-semibold text-warning">SMALL SAMPLE — N = {sampleSize}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Keine statistische Signifikanz ableitbar. Kein "ROBUST EDGE" oder "STATISTICALLY CONFIRMED". Ergebnisse dienen ausschließlich der technischen Verifikation der Execution-Pipeline.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Run Metadata */}
       <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border pt-3 md:grid-cols-3">
         <MetaItem label="Strategy Version" value={strategyVersion} />
@@ -150,7 +250,13 @@ export default function PapertradeShadowStatus() {
         <IntegrityItem label="Data Integrity" value={dataIntegrity} color={dataIntegrity === "PASS" ? "profit" : dataIntegrity === "FAIL" ? "loss" : "muted"} />
         <IntegrityItem label="Look-Ahead Protection" value={lookAhead} color={lookAhead === "PASS" ? "profit" : lookAhead === "FAIL" ? "loss" : "muted"} />
         <IntegrityItem label="Reproducibility" value={reproducibility} color={reproducibility === "PASS" ? "profit" : reproducibility === "FAIL" ? "loss" : "muted"} />
+        <IntegrityItem label="R-Reconciliation" value={rReconciliation} color={rReconciliation === "PASS" ? "profit" : rReconciliation === "FAIL" ? "loss" : "muted"} />
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
         <IntegrityItem label="Governance" value={governance} color={governance === "PASS" ? "profit" : "loss"} />
+        <IntegrityItem label="Equity Curve" value={equityCurveCheck} color={equityCurveCheck === "PASS" ? "profit" : equityCurveCheck === "FAIL" ? "loss" : "muted"} />
+        <IntegrityItem label="Sample Size" value={`${sampleSize}`} color={isSmallSample ? "warning" : "profit"} />
+        <IntegrityItem label="Small Sample" value={isSmallSample ? "TRUE" : "FALSE"} color={isSmallSample ? "warning" : "profit"} />
       </div>
 
       {/* OOS Classification Unchanged Notice */}
