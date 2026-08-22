@@ -15,6 +15,24 @@
       ],
       "default": "ACTIVE"
     },
+    "feed_status": {
+      "type": "string",
+      "enum": [
+        "LIVE",
+        "STALE",
+        "DISCONNECTED",
+        "INVALID"
+      ],
+      "default": "DISCONNECTED"
+    },
+    "forward_data_available": {
+      "type": "boolean",
+      "default": false
+    },
+    "forward_data_valid": {
+      "type": "boolean",
+      "default": false
+    },
     "data_source": {
       "type": "string",
       "default": "MT5_BRIDGE_LIVE"
@@ -23,11 +41,19 @@
       "type": "boolean",
       "default": false
     },
+    "source_timezone": {
+      "type": "string",
+      "default": "UTC"
+    },
     "tick_age_ms": {
       "type": "number",
       "default": 0
     },
     "last_tick_timestamp": {
+      "type": "number",
+      "default": 0
+    },
+    "latest_candle_timestamp": {
       "type": "number",
       "default": 0
     },
@@ -63,6 +89,14 @@
       "type": "number",
       "default": 0
     },
+    "historical_oos_trades": {
+      "type": "number",
+      "default": 0
+    },
+    "forward_validated_trades": {
+      "type": "number",
+      "default": 0
+    },
     "cumulative_n": {
       "type": "number",
       "default": 0
@@ -70,6 +104,18 @@
     "cumulative_total_r": {
       "type": "number",
       "default": 0
+    },
+    "statistics_unchanged": {
+      "type": "boolean",
+      "default": true
+    },
+    "walk_forward_regression": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL"
+      ],
+      "default": "PASS"
     },
     "statistics": {
       "type": "object"
