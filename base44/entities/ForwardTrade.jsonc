@@ -1,0 +1,103 @@
+{
+  "name": "ForwardTrade",
+  "type": "object",
+  "properties": {
+    "fingerprint": {
+      "type": "string"
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "strategy_version": {
+      "type": "string",
+      "default": "NY_LONG_V1_FROZEN"
+    },
+    "parameter_hash": {
+      "type": "string"
+    },
+    "signal_timestamp": {
+      "type": "number"
+    },
+    "entry_timestamp": {
+      "type": "number"
+    },
+    "entry_price": {
+      "type": "number"
+    },
+    "stop_loss": {
+      "type": "number"
+    },
+    "take_profit": {
+      "type": "number"
+    },
+    "exit_timestamp": {
+      "type": "number"
+    },
+    "exit_price": {
+      "type": "number"
+    },
+    "exit_reason": {
+      "type": "string"
+    },
+    "r_multiple": {
+      "type": "number",
+      "default": 0
+    },
+    "recalculated_r": {
+      "type": "number",
+      "default": 0
+    },
+    "r_reconciliation_pass": {
+      "type": "boolean",
+      "default": true
+    },
+    "mfe": {
+      "type": "number",
+      "default": 0
+    },
+    "mae": {
+      "type": "number",
+      "default": 0
+    },
+    "time_in_trade": {
+      "type": "number",
+      "default": 0
+    },
+    "dataset_source": {
+      "type": "string",
+      "default": "MT5_BRIDGE_LIVE"
+    },
+    "side": {
+      "type": "string",
+      "enum": [
+        "LONG",
+        "SHORT"
+      ],
+      "default": "LONG"
+    },
+    "session": {
+      "type": "string"
+    },
+    "validated": {
+      "type": "boolean",
+      "default": false
+    },
+    "duplicate": {
+      "type": "boolean",
+      "default": false
+    },
+    "observation_date": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "fingerprint",
+    "symbol",
+    "strategy_version",
+    "entry_timestamp",
+    "entry_price",
+    "r_multiple",
+    "validated"
+  ]
+}

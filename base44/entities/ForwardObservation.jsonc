@@ -1,0 +1,88 @@
+{
+  "name": "ForwardObservation",
+  "type": "object",
+  "properties": {
+    "observation_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "INVALID",
+        "STALE"
+      ],
+      "default": "ACTIVE"
+    },
+    "data_source": {
+      "type": "string",
+      "default": "MT5_BRIDGE_LIVE"
+    },
+    "data_valid": {
+      "type": "boolean",
+      "default": false
+    },
+    "tick_age_ms": {
+      "type": "number",
+      "default": 0
+    },
+    "last_tick_timestamp": {
+      "type": "number",
+      "default": 0
+    },
+    "forward_candle_count": {
+      "type": "number",
+      "default": 0
+    },
+    "new_trades_detected": {
+      "type": "number",
+      "default": 0
+    },
+    "new_trades_validated": {
+      "type": "number",
+      "default": 0
+    },
+    "duplicates_rejected": {
+      "type": "number",
+      "default": 0
+    },
+    "reconciliation_failures": {
+      "type": "number",
+      "default": 0
+    },
+    "oos_historical_end": {
+      "type": "number",
+      "default": 0
+    },
+    "forward_observation_start": {
+      "type": "number",
+      "default": 0
+    },
+    "forward_observation_current": {
+      "type": "number",
+      "default": 0
+    },
+    "cumulative_n": {
+      "type": "number",
+      "default": 0
+    },
+    "cumulative_total_r": {
+      "type": "number",
+      "default": 0
+    },
+    "statistics": {
+      "type": "object"
+    },
+    "governance": {
+      "type": "object"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "observation_date",
+    "status"
+  ]
+}
