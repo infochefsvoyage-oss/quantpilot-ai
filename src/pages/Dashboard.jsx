@@ -20,6 +20,7 @@ import Phase4AuditStatus from "@/components/ict/Phase4AuditStatus";
 import LivePerformanceMonitor from "@/components/ict/LivePerformanceMonitor";
 import GoLiveProgramStatus from "@/components/ict/GoLiveProgramStatus";
 import ExecutionReadinessPanel from "@/components/ict/ExecutionReadinessPanel";
+import ForwardObservationPanel from "@/components/ict/ForwardObservationPanel";
 
 export default function Dashboard() {
   const topSignal = sampleSignals[0];
@@ -254,6 +255,11 @@ export default function Dashboard() {
       {/* Execution Readiness Panel — DRY RUN */}
       <div className="mt-4">
         <ExecutionReadinessPanel />
+      </div>
+
+      {/* Forward Observation Collector — Remaining N=67 */}
+      <div className="mt-4">
+        <ForwardObservationPanel />
       </div>
 
       {/* A+ NY-LONG Research Status — Phase 2/3 Sequential Validation */}
