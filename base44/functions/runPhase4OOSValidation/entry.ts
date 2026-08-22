@@ -31,7 +31,7 @@ export default async function(req: Request): Promise<Response> {
     }
 
     const body = await req.json().catch(() => ({}));
-    const maxBatches = Math.min(body.max_batches || MAX_BATCHES, 12);
+    const maxBatches = Math.min(body.max_batches || MAX_BATCHES, 20);
     const discoveryEndUnix = body.discovery_end_unix || null;
 
     // ── Fetch candles from Twelve Data ─────────────────────────────────

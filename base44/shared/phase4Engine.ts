@@ -250,8 +250,9 @@ export function calcStats(setups: any[]) {
   const variance = n > 1 ? rVals.reduce((a, b) => a + (b - meanR) ** 2, 0) / (n - 1) : 0;
   const sd = Math.sqrt(variance);
   const se = n > 0 ? sd / Math.sqrt(n) : 0;
-  const ciLo = n > 0 ? Math.round((meanR - 1.96 * se) * 1000) / 1000 : 0;
-  const ciHi = n > 0 ? Math.round((meanR + 1.96 * se) * 1000) / 1000 : 0;
+  const tcrit = tCrit95(n - 1);
+  const ciLo = n > 0 ? Math.round((meanR - tcrit * se) * 1000) / 1000 : 0;
+  const ciHi = n > 0 ? Math.round((meanR + tcrit * se) * 1000) / 1000 : 0;
   const totalWinR = setups.filter(s => s.outcome === "WIN").reduce((a, s) => a + s.rMult, 0);
   const totalLossR = Math.abs(setups.filter(s => s.outcome === "LOSS").reduce((a, s) => a + s.rMult, 0));
   const pf = totalLossR !== 0 ? Math.round((totalWinR / totalLossR) * 100) / 100 : (totalWinR > 0 ? 99 : 0);
@@ -292,6 +293,78 @@ export function powerAndN(n: number, d: number) {
   return { power, requiredN: 82 };
 }
 
+// ─── t-distribution helpers (correct small-sample statistics) ─────────
+// p-value must ALWAYS be in [0,1]. CI must use t-critical, not z=1.96.
+function logGamma(z: number): number {
+  const c = [76.18009172947146, -86.50532032941677, 24.01409824083091,
+             -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+  let y = z, tmp = z + 5.5;
+  tmp -= (z + 0.5) * Math.log(tmp);
+  let ser = 1.000000000190015;
+  for (let j = 0; j < 6; j++) { y++; ser += c[j] / y; }
+  return -tmp + Math.log(2.5066282746310005 * ser / z);
+}
+
+function betacf(a: number, b: number, x: number): number {
+  const MAXIT = 200, EPS = 3e-7, FPMIN = 1e-30;
+  let qab = a + b, qap = a + 1, qam = a - 1;
+  let c = 1, d = 1 - qab * x / qap;
+  if (Math.abs(d) < FPMIN) d = FPMIN;
+  d = 1 / d;
+  let h = d;
+  for (let m = 1; m <= MAXIT; m++) {
+    const m2 = 2 * m;
+    let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+    d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d; h *= d * c;
+    aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+    d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d; const del = d * c; h *= del;
+    if (Math.abs(del - 1) < EPS) break;
+  }
+  return h;
+}
+
+function betai(a: number, b: number, x: number): number {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  const bt = Math.exp(logGamma(a + b) - logGamma(a) - logGamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+  if (x < (a + 1) / (a + b + 2)) return bt * betacf(a, b, x) / a;
+  return 1 - bt * betacf(b, a, 1 - x) / b;
+}
+
+// Two-tailed t-distribution p-value — ALWAYS clamped to [0,1]
+export function tTestPValue(tStat: number, df: number): number {
+  if (df <= 0) return 1;
+  const x = df / (df + tStat * tStat);
+  const pOneTail = betai(df / 2, 0.5, x);
+  return Math.min(1, Math.max(0, 2 * Math.min(pOneTail, 1 - pOneTail)));
+}
+
+// t-critical value for two-tailed 95% CI (lookup + interpolation)
+const T_CRIT_95: Record<number, number> = {
+  1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571,
+  6: 2.447, 7: 2.365, 8: 2.306, 9: 2.262, 10: 2.228,
+  11: 2.201, 12: 2.179, 13: 2.160, 14: 2.145, 15: 2.131,
+  20: 2.086, 25: 2.060, 30: 2.042, 40: 2.021, 60: 2.000,
+  120: 1.980, 999: 1.960,
+};
+
+export function tCrit95(df: number): number {
+  if (df <= 0) return 1.96;
+  if (T_CRIT_95[df]) return T_CRIT_95[df];
+  const keys = Object.keys(T_CRIT_95).map(Number).sort((a, b) => a - b);
+  let lo = keys[0], hi = keys[keys.length - 1];
+  for (const k of keys) {
+    if (k <= df) lo = k;
+    if (k >= df) { hi = k; break; }
+  }
+  if (lo === hi) return T_CRIT_95[lo];
+  return T_CRIT_95[lo] + (T_CRIT_95[hi] - T_CRIT_95[lo]) * (df - lo) / (hi - lo);
+}
+
 export function tTestP(setups: any[]) {
   const n = setups.length;
   if (n < 2) return 1;
@@ -301,7 +374,9 @@ export function tTestP(setups: any[]) {
   const sd = Math.sqrt(v);
   const se = sd / Math.sqrt(n);
   const t = se > 0 ? m / se : 0;
-  return Math.round(2 * (1 - normalCDF(Math.abs(t))) * 10000) / 10000;
+  const df = n - 1;
+  const p = tTestPValue(Math.abs(t), df);
+  return Math.round(p * 10000) / 10000;
 }
 
 // ─── Bootstrap (10k resamples, WITH REPLACEMENT) ──────────────────────

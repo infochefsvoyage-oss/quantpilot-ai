@@ -17,6 +17,8 @@ import APlusBacktestChart from "@/components/ict/APlusBacktestChart";
 import NYLongResearchStatus from "@/components/ict/NYLongResearchStatus";
 import PapertradeShadowStatus from "@/components/ict/PapertradeShadowStatus";
 import Phase4AuditStatus from "@/components/ict/Phase4AuditStatus";
+import LivePerformanceMonitor from "@/components/ict/LivePerformanceMonitor";
+import GoLiveProgramStatus from "@/components/ict/GoLiveProgramStatus";
 
 export default function Dashboard() {
   const topSignal = sampleSignals[0];
@@ -233,9 +235,19 @@ export default function Dashboard() {
         <ICTPipelineMonitor />
       </div>
 
+      {/* QuantPilot Go-Live Program — Gate Chain */}
+      <div className="mt-4">
+        <GoLiveProgramStatus />
+      </div>
+
       {/* Phase 4.1 Statistical Audit — Final */}
       <div className="mt-4">
         <Phase4AuditStatus />
+      </div>
+
+      {/* QuantPilot Live Performance Monitor — Phase 14 */}
+      <div className="mt-4">
+        <LivePerformanceMonitor />
       </div>
 
       {/* A+ NY-LONG Research Status — Phase 2/3 Sequential Validation */}
