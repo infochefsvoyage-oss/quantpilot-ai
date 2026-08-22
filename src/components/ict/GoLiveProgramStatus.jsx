@@ -11,13 +11,16 @@ export default function GoLiveProgramStatus() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const [execReadiness, setExecReadiness] = useState(null);
+
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        const logs = await base44.entities.AuditLog.list("-created_date", 30);
+        const logs = await base44.entities.AuditLog.list("-created_date", 50);
         const phase4 = (logs || []).find(l => l.event === "NY_LONG_PHASE_4_OOS_VALIDATION");
-        if (active) { setData(phase4 || null); setLoading(false); }
+        const execLog = (logs || []).find(l => l.event === "EXECUTION_READINESS_CHECK");
+        if (active) { setData(phase4 || null); setExecReadiness(execLog?.metadata || null); setLoading(false); }
       } catch {
         if (active) { setData(null); setLoading(false); }
       }
@@ -45,15 +48,28 @@ export default function GoLiveProgramStatus() {
   const pValue = v.p_value || 1;
   const pValueValid = pValue >= 0 && pValue <= 1;
 
+  // ── Three distinct states (strict separation) ──────────────────────
+  // 1. STATISTICAL VALIDATION
+  const statGatePass = n >= requiredN && ci[0] > 0 && power >= 0.8 && pValueValid && pValue < 0.05;
+  const statStatus = n < requiredN ? "UNDERPOWERED" : statGatePass ? "PASS" : "FAIL";
+
+  // 2. EXECUTION READINESS (from latest EXECUTION_READINESS_CHECK audit log)
+  const execReady = execReadiness?.execution_readiness;
+  const execStatus = execReady === "READY" ? "READY" : "NOT READY";
+
+  // 3. LIVE AUTHORIZATION (always BLOCKED unless manually approved)
+  const liveAuth = "BLOCKED";
+
   // Gate chain status
   const gates = [
     { name: "RESEARCH PASS", status: n >= 10 ? "PASS" : "FAIL", detail: `N=${n}` },
     { name: "OOS PASS", status: m.independent_oos ? "PASS" : "FAIL", detail: m.independent_oos ? "Independent" : "Not independent" },
-    { name: "STATISTICAL PASS", status: n >= requiredN && ci[0] > 0 && power >= 0.8 ? "PASS" : "FAIL", detail: `N=${n}/${requiredN}, CI=[${ci[0]}, ${ci[1]}]` },
+    { name: "STATISTICAL PASS", status: statGatePass ? "PASS" : "FAIL", detail: `N=${n}/${requiredN}, CI=[${ci[0]}, ${ci[1]}]` },
     { name: "WALK-FORWARD PASS", status: (v.walk_forward?.positive || 0) >= 3 ? "PASS" : "FAIL", detail: `${v.walk_forward?.positive || 0}/${v.walk_forward?.blocks?.length || 5} positiv` },
     { name: "PAPER EXECUTION PASS", status: "BLOCKED", detail: "Not started" },
     { name: "FORWARD PASS", status: "BLOCKED", detail: "Not started" },
     { name: "RISK GATE PASS", status: "BLOCKED", detail: "Not started" },
+    { name: "EXECUTION READINESS", status: execStatus === "READY" ? "PASS" : "FAIL", detail: execStatus },
     { name: "EXPLICIT GO-LIVE APPROVAL", status: "BLOCKED", detail: "Manual required" },
     { name: "CONTROLLED LIVE", status: "BLOCKED", detail: "All gates must pass" },
     { name: "AUTO ORDER EXECUTION", status: "BLOCKED", detail: "Final stage" },
@@ -72,6 +88,13 @@ export default function GoLiveProgramStatus() {
         </span>
       }
     >
+      {/* Three Distinct States — Strict Separation */}
+      <div className="mb-4 grid grid-cols-1 gap-2 md:grid-cols-3">
+        <StateBox label="STATISTICAL VALIDATION" status={statStatus} color={statStatus === "PASS" ? "profit" : statStatus === "UNDERPOWERED" ? "warning" : "loss"} />
+        <StateBox label="EXECUTION READINESS" status={execStatus} color={execStatus === "READY" ? "profit" : "warning"} />
+        <StateBox label="LIVE AUTHORIZATION" status={liveAuth} color="loss" />
+      </div>
+
       {/* Gate Chain */}
       <div className="space-y-1.5">
         {gates.map((g, i) => {
@@ -161,6 +184,20 @@ export default function GoLiveProgramStatus() {
         </p>
       </div>
     </PanelCard>
+  );
+}
+
+function StateBox({ label, status, color }) {
+  const colors = {
+    profit: "border-profit/30 bg-profit/5 text-profit",
+    warning: "border-warning/30 bg-warning/10 text-warning",
+    loss: "border-loss/30 bg-loss/5 text-loss",
+  };
+  return (
+    <div className={`rounded-md border px-3 py-2.5 text-center ${colors[color]}`}>
+      <div className="text-xs font-semibold text-muted-foreground">{label}</div>
+      <div className={`mt-1 font-mono text-sm font-bold ${colors[color].split(" ").pop()}`}>{status}</div>
+    </div>
   );
 }
 

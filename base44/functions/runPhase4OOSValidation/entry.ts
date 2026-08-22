@@ -13,7 +13,7 @@ import { validateCandleData } from '../../shared/forexDataQuality.ts';
 import { runPhase4Validation } from '../../shared/phase4Engine.ts';
 import { fetchTwelveDataBatch, fmtDateTime, sleep, resolveApiKeyAndProvider, BATCH_SIZE, THROTTLE_MS } from '../../shared/twelveDataClient.ts';
 
-const MAX_BATCHES = 12;
+const MAX_BATCHES = 30;
 
 export default async function(req: Request): Promise<Response> {
   try {

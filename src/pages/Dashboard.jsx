@@ -19,6 +19,7 @@ import PapertradeShadowStatus from "@/components/ict/PapertradeShadowStatus";
 import Phase4AuditStatus from "@/components/ict/Phase4AuditStatus";
 import LivePerformanceMonitor from "@/components/ict/LivePerformanceMonitor";
 import GoLiveProgramStatus from "@/components/ict/GoLiveProgramStatus";
+import ExecutionReadinessPanel from "@/components/ict/ExecutionReadinessPanel";
 
 export default function Dashboard() {
   const topSignal = sampleSignals[0];
@@ -248,6 +249,11 @@ export default function Dashboard() {
       {/* QuantPilot Live Performance Monitor — Phase 14 */}
       <div className="mt-4">
         <LivePerformanceMonitor />
+      </div>
+
+      {/* Execution Readiness Panel — DRY RUN */}
+      <div className="mt-4">
+        <ExecutionReadinessPanel />
       </div>
 
       {/* A+ NY-LONG Research Status — Phase 2/3 Sequential Validation */}
