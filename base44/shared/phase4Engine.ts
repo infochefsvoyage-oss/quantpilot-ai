@@ -121,7 +121,7 @@ export function rrInAllowedRange(rr: number) {
 }
 
 // ─── A+ Signal Generation (FROZEN) ─────────────────────────────────────
-function evaluateAtCandle(window: Candle[], side: string) {
+export function evaluateAtCandle(window: Candle[], side: string) {
   const swings = detectSwings(window);
   const bos = detectBOSCHOCH(window, swings);
   const sweep = detectLiquiditySweep(window, swings);
@@ -143,7 +143,7 @@ function evaluateAtCandle(window: Candle[], side: string) {
   return { validatedSetup, sweep, ob, session, side };
 }
 
-function generateAPlusSignal(analysis: any, entryPrice: number) {
+export function generateAPlusSignal(analysis: any, entryPrice: number) {
   const { sweep, ob, side } = analysis;
   let stopLoss: number | null = null;
   if (side === "LONG") {

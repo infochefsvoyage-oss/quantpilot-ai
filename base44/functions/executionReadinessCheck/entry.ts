@@ -87,7 +87,8 @@ export default async function(req: Request): Promise<Response> {
     // ── 4) Tick Freshness Check ────────────────────────────────────────
     const tickAgeMs = computeTickAgeMs(tickJ);
     const tickFresh = tickAgeMs !== null && tickAgeMs <= FRESHNESS_THRESHOLD_MS;
-    const tickStatus = tickFresh ? "PASS" : "FAIL";
+    const tickStatus = tickAgeMs === null ? "BLOCK" : tickFresh ? "PASS" : "FAIL";
+    const tickReason = tickAgeMs === null ? "NO_TICK_TIME_BLOCK" : tickFresh ? "FRESH" : "STALE";
 
     // ── 5) Account Sync (READ ONLY) ──────────────────────────────────
     const accountSyncOk = acc.ok && (account.balance != null || account.equity != null);
@@ -119,6 +120,7 @@ export default async function(req: Request): Promise<Response> {
       },
       tick_freshness: {
         status: tickStatus,
+        reason: tickReason,
         tick_age_ms: tickAgeMs,
         threshold_ms: FRESHNESS_THRESHOLD_MS,
         latest_tick_timestamp: tickJ.time ? tickJ.time * 1000 : null,

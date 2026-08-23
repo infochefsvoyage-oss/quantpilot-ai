@@ -21,6 +21,7 @@ import LivePerformanceMonitor from "@/components/ict/LivePerformanceMonitor";
 import GoLiveProgramStatus from "@/components/ict/GoLiveProgramStatus";
 import ExecutionReadinessPanel from "@/components/ict/ExecutionReadinessPanel";
 import ForwardObservationPanel from "@/components/ict/ForwardObservationPanel";
+import ProfitabilityMonitor from "@/components/ict/ProfitabilityMonitor";
 
 export default function Dashboard() {
   const topSignal = sampleSignals[0];
@@ -240,6 +241,11 @@ export default function Dashboard() {
       {/* QuantPilot Go-Live Program — Gate Chain */}
       <div className="mt-4">
         <GoLiveProgramStatus />
+      </div>
+
+      {/* QuantPilot Profitability Monitor — Controlled Auto-Order Readiness */}
+      <div className="mt-4">
+        <ProfitabilityMonitor />
       </div>
 
       {/* Phase 4.1 Statistical Audit — Final */}

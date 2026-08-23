@@ -70,17 +70,24 @@ function generateAPlusSignal(analysis, entryPrice) {
 // ─── Outcome simulation (SL hit first = LOSS, TP1 = WIN) ──────────────
 function simulateOutcome(setup, futureCandles) {
   const { stop_loss: sl, tp1, direction } = setup;
+  let mfe = 0, mae = 0;
+  const risk = Math.abs(setup.entry - sl);
+  if (risk === 0) return { outcome: "TIMEOUT", bars: futureCandles.length, mfe: 0, mae: 0, exitPrice: setup.entry };
   for (let i = 0; i < futureCandles.length; i++) {
     const c = futureCandles[i];
     if (direction === "LONG") {
-      if (c.low <= sl) return { outcome: "LOSS", bars: i + 1 };
-      if (c.high >= tp1) return { outcome: "WIN", bars: i + 1 };
+      mfe = Math.max(mfe, (c.high - setup.entry) / risk);
+      mae = Math.max(mae, (setup.entry - c.low) / risk);
+      if (c.low <= sl) return { outcome: "LOSS", bars: i + 1, mfe: Math.round(mfe * 100) / 100, mae: Math.round(mae * 100) / 100, exitPrice: sl };
+      if (c.high >= tp1) return { outcome: "WIN", bars: i + 1, mfe: Math.round(mfe * 100) / 100, mae: Math.round(mae * 100) / 100, exitPrice: tp1 };
     } else {
-      if (c.high >= sl) return { outcome: "LOSS", bars: i + 1 };
-      if (c.low <= tp1) return { outcome: "WIN", bars: i + 1 };
+      mfe = Math.max(mfe, (setup.entry - c.low) / risk);
+      mae = Math.max(mae, (c.high - setup.entry) / risk);
+      if (c.high >= sl) return { outcome: "LOSS", bars: i + 1, mfe: Math.round(mfe * 100) / 100, mae: Math.round(mae * 100) / 100, exitPrice: sl };
+      if (c.low <= tp1) return { outcome: "WIN", bars: i + 1, mfe: Math.round(mfe * 100) / 100, mae: Math.round(mae * 100) / 100, exitPrice: tp1 };
     }
   }
-  return { outcome: "TIMEOUT", bars: futureCandles.length };
+  return { outcome: "TIMEOUT", bars: futureCandles.length, mfe: Math.round(mfe * 100) / 100, mae: Math.round(mae * 100) / 100, exitPrice: futureCandles[futureCandles.length - 1].close };
 }
 
 // ─── Backtest (FROZEN hypothesis, configurable session/side) ──────────
@@ -102,12 +109,21 @@ function runBacktest(candles, filterSession, filterSide) {
       const future = candles.slice(i + 1, i + 1 + holdingPeriod);
       const res = simulateOutcome(sig, future);
       const rMult = res.outcome === "WIN" ? sig.rr : res.outcome === "LOSS" ? -1 : 0;
+      const recalculatedR = res.outcome === "WIN"
+        ? Math.round((Math.abs(res.exitPrice - sig.entry) / Math.abs(sig.entry - sig.stop_loss)) * 100) / 100
+        : res.outcome === "LOSS" ? -1 : 0;
+      const rReconciliationPass = Math.abs(rMult - recalculatedR) < 0.02;
       setups.push({
         idx: i, time: candles[i].time,
         timestamp: new Date(candles[i].time * 1000).toISOString(),
         side, session: a.session.name,
         entry: Math.round(entryPrice * 100) / 100,
+        sl: Math.round(sig.stop_loss * 100) / 100,
+        tp: Math.round(sig.tp1 * 100) / 100,
         rr: sig.rr, outcome: res.outcome, bars: res.bars, rMult,
+        recalculatedR, rReconciliationPass,
+        mfe: res.mfe, mae: res.mae,
+        exitPrice: Math.round(res.exitPrice * 100) / 100,
       });
       cooldownUntil = i + cooldown;
       break;
@@ -133,8 +149,9 @@ function calcStats(setups) {
   const variance = n > 1 ? rVals.reduce((a, b) => a + (b - meanR) ** 2, 0) / (n - 1) : 0;
   const sd = Math.sqrt(variance);
   const se = n > 0 ? sd / Math.sqrt(n) : 0;
-  const ciLo = n > 0 ? Math.round((meanR - 1.96 * se) * 1000) / 1000 : 0;
-  const ciHi = n > 0 ? Math.round((meanR + 1.96 * se) * 1000) / 1000 : 0;
+  const tcrit = tCrit95(n > 1 ? n - 1 : 1);
+  const ciLo = n > 0 ? Math.round((meanR - tcrit * se) * 1000) / 1000 : 0;
+  const ciHi = n > 0 ? Math.round((meanR + tcrit * se) * 1000) / 1000 : 0;
   const totalWinR = setups.filter(s => s.outcome === "WIN").reduce((a, s) => a + s.rMult, 0);
   const totalLossR = Math.abs(setups.filter(s => s.outcome === "LOSS").reduce((a, s) => a + s.rMult, 0));
   const pf = totalLossR !== 0 ? Math.round((totalWinR / totalLossR) * 100) / 100 : (totalWinR > 0 ? 99 : 0);
@@ -155,6 +172,75 @@ function normalCDF(x) {
   const t = 1 / (1 + 0.3275911 * z);
   const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-z * z);
   return x < 0 ? 1 - y : y;
+}
+
+// ─── Student-t distribution (matches backend phase4Engine.ts) ─────────
+function logGamma(z) {
+  const c = [76.18009172947146, -86.50532032941677, 24.01409824083091,
+             -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+  let y = z, tmp = z + 5.5;
+  tmp -= (z + 0.5) * Math.log(tmp);
+  let ser = 1.000000000190015;
+  for (let j = 0; j < 6; j++) { y++; ser += c[j] / y; }
+  return -tmp + Math.log(2.5066282746310005 * ser / z);
+}
+
+function betacf(a, b, x) {
+  const MAXIT = 200, EPS = 3e-7, FPMIN = 1e-30;
+  let qab = a + b, qap = a + 1, qam = a - 1;
+  let c = 1, d = 1 - qab * x / qap;
+  if (Math.abs(d) < FPMIN) d = FPMIN;
+  d = 1 / d;
+  let h = d;
+  for (let m = 1; m <= MAXIT; m++) {
+    const m2 = 2 * m;
+    let aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+    d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d; h *= d * c;
+    aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+    d = 1 + aa * d; if (Math.abs(d) < FPMIN) d = FPMIN;
+    c = 1 + aa / c; if (Math.abs(c) < FPMIN) c = FPMIN;
+    d = 1 / d; const del = d * c; h *= del;
+    if (Math.abs(del - 1) < EPS) break;
+  }
+  return h;
+}
+
+function betai(a, b, x) {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  const bt = Math.exp(logGamma(a + b) - logGamma(a) - logGamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+  if (x < (a + 1) / (a + b + 2)) return bt * betacf(a, b, x) / a;
+  return 1 - bt * betacf(b, a, 1 - x) / b;
+}
+
+function tTestPValue(tStat, df) {
+  if (df <= 0) return 1;
+  const x = df / (df + tStat * tStat);
+  const pOneTail = betai(df / 2, 0.5, x);
+  return Math.min(1, Math.max(0, 2 * Math.min(pOneTail, 1 - pOneTail)));
+}
+
+const T_CRIT_95 = {
+  1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571,
+  6: 2.447, 7: 2.365, 8: 2.306, 9: 2.262, 10: 2.228,
+  11: 2.201, 12: 2.179, 13: 2.160, 14: 2.145, 15: 2.131,
+  20: 2.086, 25: 2.060, 30: 2.042, 40: 2.021, 60: 2.000,
+  120: 1.980, 999: 1.960,
+};
+
+function tCrit95(df) {
+  if (df <= 0) return 1.96;
+  if (T_CRIT_95[df]) return T_CRIT_95[df];
+  const keys = Object.keys(T_CRIT_95).map(Number).sort((a, b) => a - b);
+  let lo = keys[0], hi = keys[keys.length - 1];
+  for (const k of keys) {
+    if (k <= df) lo = k;
+    if (k >= df) { hi = k; break; }
+  }
+  if (lo === hi) return T_CRIT_95[lo];
+  return T_CRIT_95[lo] + (T_CRIT_95[hi] - T_CRIT_95[lo]) * (df - lo) / (hi - lo);
 }
 
 function cohensD(setups) {
@@ -184,7 +270,9 @@ function tTestP(setups) {
   const sd = Math.sqrt(v);
   const se = sd / Math.sqrt(n);
   const t = se > 0 ? m / se : 0;
-  return Math.round(2 * (1 - normalCDF(Math.abs(t))) * 10000) / 10000;
+  const df = n - 1;
+  const p = tTestPValue(Math.abs(t), df);
+  return Math.round(p * 10000) / 10000;
 }
 
 function bootstrap(setups, iterations = 10000) {
