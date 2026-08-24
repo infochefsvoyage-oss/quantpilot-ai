@@ -8,7 +8,7 @@ import { base44 } from "@/api/base44Client";
 import PanelCard from "@/components/PanelCard";
 import {
   ShieldCheck, ShieldAlert, Lock, AlertTriangle, CheckCircle2, XCircle,
-  Activity, Radio, Server, Database, Gauge, Ban,
+  Activity, Radio, Server, Database, Gauge, Ban, Network, Clock, AlertOctagon,
 } from "lucide-react";
 
 const E2E_TESTS = [
@@ -36,17 +36,19 @@ const RISK_GUARDS = [
 
 export default function Go3MT5E2EAudit() {
   const [audit, setAudit] = useState(null);
+  const [diag, setDiag] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        const logs = await base44.entities.AuditLog.list("-created_date", 20);
+        const logs = await base44.entities.AuditLog.list("-created_date", 30);
         const go3 = (logs || []).find(l => l.event === "GO_LIVE_GO3_MT5_E2E_AUDIT");
-        if (active) { setAudit(go3 || null); setLoading(false); }
+        const diagLog = (logs || []).find(l => l.event === "GO3_MT5_CONNECTIVITY_DIAGNOSTIC");
+        if (active) { setAudit(go3 || null); setDiag(diagLog || null); setLoading(false); }
       } catch {
-        if (active) { setAudit(null); setLoading(false); }
+        if (active) { setAudit(null); setDiag(null); setLoading(false); }
       }
     })();
     return () => { active = false; };
@@ -63,6 +65,7 @@ export default function Go3MT5E2EAudit() {
   }
 
   const m = audit?.metadata || {};
+  const d = diag?.metadata || {};
   const tests = m.test_results_14 || {};
   const negTests = m.negative_test_results || {};
   const riskGuards = m.risk_gate_results || {};
@@ -74,6 +77,8 @@ export default function Go3MT5E2EAudit() {
   const negPassCount = m.negative_test_pass_count || 0;
   const allPass = passCount === 14;
   const auditId = audit?.id || "—";
+  const diagId = diag?.id || "—";
+  const hasDiag = diag !== null;
 
   const statusIcon = (status) => {
     if (status === "PASS") return <CheckCircle2 className="h-4 w-4 text-profit" />;
@@ -132,6 +137,105 @@ export default function Go3MT5E2EAudit() {
             <span className="text-muted-foreground">Threshold: <span className="font-mono font-semibold text-foreground">{m.heartbeat.threshold_s || 30}s</span></span>
             <span className="text-muted-foreground">Tick Age: <span className="font-mono font-semibold text-loss">{m.tick_age?.reason || "BLOCK"}</span></span>
             <span className="text-muted-foreground">Candle Age: <span className="font-mono font-semibold text-loss">{m.candle_age?.reason || "FAIL"}</span></span>
+          </div>
+        </div>
+      )}
+
+      {/* ── CONNECTIVITY DIAGNOSTIC — Architecture Trace ─────────────── */}
+      {hasDiag && (
+        <div className="mb-3">
+          <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-primary">
+            <Network className="h-3.5 w-3.5" />
+            Connectivity Diagnostic — Architecture Trace
+          </h4>
+
+          {/* Hop Chain: Dashboard → Backend → Bridge → MT5 → Broker → Symbol */}
+          <div className="space-y-1.5">
+            <HopRow label="① Dashboard → Backend" status="PASS" value="Base44 Function" latency="—" />
+            <HopRow label="② Backend → Bridge HTTP" status={d.bridgeStatus === "UP" ? "PASS" : "FAIL"} value={d.bridgeStatus || "UNKNOWN"} latency={`${d.bridgeLatencyMs || 0}ms`} />
+            <HopRow label="③ Bridge → MT5 Terminal" status={d.mt5ProcessStatus === "DETECTED" ? "PASS" : "FAIL"} value={d.mt5ProcessStatus || "UNKNOWN"} latency="—" />
+            <HopRow label="④ MT5 → Broker Server" status={d.brokerConnectionStatus === "CONNECTED" ? "PASS" : "FAIL"} value={d.brokerConnectionStatus || "UNKNOWN"} latency="—" />
+            <HopRow label="⑤ Broker → Symbol (XAUUSD)" status={d.xauusdExists ? "PASS" : "FAIL"} value={d.xauusdExists ? "VISIBLE" : "NOT_FOUND"} latency="—" />
+          </div>
+
+          {/* Diagnostic Grid */}
+          <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
+            <DiagBox label="Bridge HTTP" value={d.bridgeStatus || "UNKNOWN"} pass={d.bridgeStatus === "UP"} />
+            <DiagBox label="Bridge Process" value={d.bridgeStatus === "UP" ? "HEALTHY" : "DOWN"} pass={d.bridgeStatus === "UP"} />
+            <DiagBox label="Bridge Version" value={d.bridgeVersion || "UNKNOWN"} pass={null} />
+            <DiagBox label="MT5 Terminal" value={d.mt5TerminalStatus || "UNKNOWN"} pass={d.mt5TerminalStatus === "CONNECTED"} />
+            <DiagBox label="MT5 Process" value={d.mt5ProcessStatus || "UNKNOWN"} pass={d.mt5ProcessStatus === "DETECTED"} />
+            <DiagBox label="MT5 Logged In" value={d.mt5LoggedIn ? "YES" : "NO"} pass={d.mt5LoggedIn} />
+            <DiagBox label="Broker Connection" value={d.brokerConnectionStatus || "UNKNOWN"} pass={d.brokerConnectionStatus === "CONNECTED"} />
+            <DiagBox label="Broker Name" value={d.brokerName || "UNKNOWN"} pass={null} />
+            <DiagBox label="Account Sync" value={d.accountStatus || "UNKNOWN"} pass={d.accountStatus === "SYNCED"} />
+            <DiagBox label="Market Data" value={d.marketStatus || "UNKNOWN"} pass={d.marketStatus === "AVAILABLE"} />
+            <DiagBox label="Symbol Source" value={d.symbolSource || "UNKNOWN"} pass={d.symbolSource === "MT5_LIVE"} />
+            <DiagBox label="Heartbeat" value={d.heartbeatReason || "UNKNOWN"} pass={d.heartbeatReason === "HEALTHY"} />
+          </div>
+
+          {/* Time / Timezone */}
+          <div className="mt-2 rounded-md border border-border bg-secondary/30 px-3 py-2">
+            <div className="mb-1 flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-semibold text-primary">Time / Timezone</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+              <TimeItem label="Current UTC" value={d.currentUtc ? new Date(d.currentUtc).toLocaleTimeString("de-DE") : "—"} />
+              <TimeItem label="Bridge UTC" value={d.bridgeUtc ? new Date(d.bridgeUtc).toLocaleTimeString("de-DE") : "—"} />
+              <TimeItem label="Bridge Offset" value={d.bridgeTimeOffsetMs != null ? `${d.bridgeTimeOffsetMs}ms` : "—"} />
+              <TimeItem label="Last Tick" value={d.lastTick ? new Date(d.lastTick).toLocaleTimeString("de-DE") : "NULL"} />
+              <TimeItem label="Tick Age" value={d.tickAgeMs != null ? `${Math.round(d.tickAgeMs / 1000)}s` : "NULL"} />
+              <TimeItem label="Candle Age" value={d.candleAgeMs != null ? `${Math.round(d.candleAgeMs / 1000)}s` : "NULL"} />
+              <TimeItem label="Heartbeat Age" value={d.heartbeatAgeS != null ? `${Math.round(d.heartbeatAgeS).toLocaleString("de-DE")}s` : "—"} />
+              <TimeItem label="Broker TZ" value={d.brokerTimezone || "UNKNOWN"} />
+            </div>
+          </div>
+
+          {/* Mock / Fallback Detection */}
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            <MockBox label="MOCK DATA" value={d.mockData ? "TRUE" : "FALSE"} pass={!d.mockData} />
+            <MockBox label="FALLBACK DATA" value={d.fallbackData ? "TRUE" : "FALSE"} pass={!d.fallbackData} />
+            <MockBox label="CACHED TICK" value={d.cachedTick ? "TRUE" : "FALSE"} pass={!d.cachedTick} />
+          </div>
+
+          {/* PRIMARY ROOT CAUSE */}
+          <div className={`mt-2 rounded-md border px-3 py-2.5 ${
+            d.isExternalBlocker ? "border-warning/30 bg-warning/10" : "border-loss/30 bg-loss/5"
+          }`}>
+            <div className="flex items-center gap-2">
+              <AlertOctagon className={`h-4 w-4 ${d.isExternalBlocker ? "text-warning" : "text-loss"}`} />
+              <span className="text-xs font-semibold text-muted-foreground">PRIMARY ROOT CAUSE</span>
+            </div>
+            <div className={`mt-1 font-mono text-sm font-bold ${d.isExternalBlocker ? "text-warning" : "text-loss"}`}>
+              {d.primaryRootCause || "UNKNOWN"}
+            </div>
+            {d.failedComponents && d.failedComponents.length > 0 && (
+              <div className="mt-1 text-xs text-muted-foreground">
+                Failed: <span className="font-mono text-loss">{d.failedComponents.join(" → ")}</span>
+              </div>
+            )}
+            {d.isExternalBlocker && (
+              <div className="mt-1.5 flex items-center gap-1.5 rounded border border-warning/20 bg-warning/5 px-2 py-1">
+                <AlertTriangle className="h-3 w-3 shrink-0 text-warning" />
+                <span className="text-xs font-semibold text-warning">EXTERNAL INFRASTRUCTURE BLOCKER</span>
+              </div>
+            )}
+          </div>
+
+          {/* Next Required Action */}
+          <div className="mt-2 rounded-md border border-border bg-secondary/30 px-3 py-2">
+            <div className="text-xs font-semibold text-primary">Next Required Action</div>
+            <p className="mt-1 text-xs text-muted-foreground">{d.nextRequiredAction || "—"}</p>
+          </div>
+
+          {/* Diagnostic AuditLog ID */}
+          <div className="mt-2 flex items-center justify-between rounded-md border border-border bg-secondary/30 px-3 py-2">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Network className="h-3.5 w-3.5 text-primary" />
+              Diagnostic AuditLog ID
+            </span>
+            <span className="font-mono text-xs font-semibold text-foreground">{diagId}</span>
           </div>
         </div>
       )}
@@ -386,6 +490,54 @@ function GovStateItem({ label, value, danger }) {
     <div className="flex items-center justify-between">
       <span className="text-muted-foreground">{label}</span>
       <span className={`font-mono font-semibold ${danger ? "text-loss" : "text-profit"}`}>{value}</span>
+    </div>
+  );
+}
+
+function HopRow({ label, status, value, latency }) {
+  const pass = status === "PASS";
+  return (
+    <div className={`flex items-center justify-between rounded-md border px-3 py-1.5 ${
+      pass ? "border-profit/20 bg-profit/5" : "border-loss/20 bg-loss/5"
+    }`}>
+      <div className="flex items-center gap-2">
+        {pass ? <CheckCircle2 className="h-3.5 w-3.5 text-profit" /> : <XCircle className="h-3.5 w-3.5 text-loss" />}
+        <span className="font-mono text-xs text-foreground">{label}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className={`font-mono text-xs font-bold ${pass ? "text-profit" : "text-loss"}`}>{value}</span>
+        <span className="font-mono text-xs text-muted-foreground">{latency}</span>
+      </div>
+    </div>
+  );
+}
+
+function DiagBox({ label, value, pass }) {
+  const color = pass === true ? "profit" : pass === false ? "loss" : "muted";
+  const colors = { profit: "text-profit", loss: "text-loss", muted: "text-muted-foreground" };
+  const border = pass === true ? "border-profit/20 bg-profit/5" : pass === false ? "border-loss/20 bg-loss/5" : "border-border bg-secondary/30";
+  return (
+    <div className={`rounded-md border px-2.5 py-1.5 ${border}`}>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={`mt-0.5 font-mono text-xs font-bold ${colors[color]}`}>{value}</div>
+    </div>
+  );
+}
+
+function TimeItem({ label, value }) {
+  return (
+    <div className="flex items-center justify-between rounded border border-border bg-secondary/30 px-2 py-1">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-mono font-semibold text-foreground">{value}</span>
+    </div>
+  );
+}
+
+function MockBox({ label, value, pass }) {
+  return (
+    <div className={`rounded-md border px-2.5 py-1.5 text-center ${pass ? "border-profit/20 bg-profit/5" : "border-loss/20 bg-loss/5"}`}>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={`mt-0.5 font-mono text-xs font-bold ${pass ? "text-profit" : "text-loss"}`}>{value}</div>
     </div>
   );
 }
