@@ -1,0 +1,56 @@
+{
+  "name": "GoLiveGate",
+  "type": "object",
+  "properties": {
+    "gate_id": {
+      "type": "string",
+      "enum": [
+        "G1_MT5_E2E",
+        "G2_MARKET_DATA",
+        "G3_STRATEGY",
+        "G4_BACKTEST",
+        "G5_OOS",
+        "G6_EXPECTANCY",
+        "G7_SHADOW",
+        "G8_SEMI_AUTO",
+        "G9_CONTROLLED_LIVE",
+        "G10_SAFETY"
+      ]
+    },
+    "gate_name": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PENDING",
+        "IN_PROGRESS",
+        "PASS",
+        "FAIL",
+        "BLOCKED"
+      ],
+      "default": "PENDING"
+    },
+    "phase": {
+      "type": "string"
+    },
+    "required_criteria": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "string"
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "gate_id",
+    "gate_name",
+    "status"
+  ]
+}
