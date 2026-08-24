@@ -23,6 +23,7 @@ import ExecutionReadinessPanel from "@/components/ict/ExecutionReadinessPanel";
 import ForwardObservationPanel from "@/components/ict/ForwardObservationPanel";
 import ProfitabilityMonitor from "@/components/ict/ProfitabilityMonitor";
 import GoLiveGateTracker from "@/components/ict/GoLiveGateTracker";
+import Go3MT5E2EAudit from "@/components/ict/Go3MT5E2EAudit";
 
 export default function Dashboard() {
   const topSignal = sampleSignals[0];
@@ -247,6 +248,11 @@ export default function Dashboard() {
       {/* Go-Live Gate Tracker — 10 Gates → 06.09.2026 */}
       <div className="mt-4">
         <GoLiveGateTracker />
+      </div>
+
+      {/* GO-3 MT5 E2E Hardening Audit — 14/14 Test Matrix */}
+      <div className="mt-4">
+        <Go3MT5E2EAudit />
       </div>
 
       {/* QuantPilot Profitability Monitor — Controlled Auto-Order Readiness */}
