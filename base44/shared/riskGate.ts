@@ -34,7 +34,11 @@ export interface RiskGateResult {
 
 export async function evaluateRiskGate(
   base44: any,
-  signal?: { entry_price?: number; stop_loss?: number; side?: string; take_profit?: number }
+  signal?: { 
+    entry_price?: number; stop_loss?: number; side?: string; take_profit?: number;
+    account_balance?: number; contract_size?: number; tick_value?: number; tick_size?: number;
+    volume_min?: number; volume_max?: number;
+  }
 ): Promise<RiskGateResult> {
   const settings = await base44.entities.RiskSettings.list("-created_date", 1);
   const r = settings[0] || {
@@ -71,7 +75,18 @@ export async function evaluateRiskGate(
   let posSize = 0, slDist = 0;
   if (signal?.entry_price && signal?.stop_loss) {
     slDist = Math.abs(signal.entry_price - signal.stop_loss);
-    posSize = 0.01; // Micro lot — controlled live
+    // Dynamic position sizing: risk_amount / (sl_distance * contract_size)
+    const balance = signal.account_balance || 10000;
+    const riskPct = (r.risk_per_trade || 0.5) / 100;
+    const riskAmount = balance * riskPct;
+    const contractSize = signal.contract_size || 100; // XAUUSD: 100 oz per lot
+    if (slDist > 0 && contractSize > 0) {
+      posSize = riskAmount / (slDist * contractSize);
+      posSize = Math.round(posSize * 100) / 100;
+      const volMin = signal.volume_min || 0.01;
+      const volMax = signal.volume_max || 100;
+      posSize = Math.max(volMin, Math.min(volMax, posSize));
+    }
   }
 
   const checks = {
@@ -103,6 +118,8 @@ export async function evaluateRiskGate(
       current_drawdown: Math.round(maxDD * 100) / 100,
       position_size: posSize,
       sl_distance: Math.round(slDist * 100) / 100,
+      account_balance: signal?.account_balance || 10000,
+      contract_size: signal?.contract_size || 100,
     },
   };
 }

@@ -12,7 +12,7 @@
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { secrets } from 'base44:runtime';
-import { SYMBOL, fetchCandleHistory, getServerTimeMs, computeTickAgeMs } from '../../shared/mt5Bridge.ts';
+import { SYMBOL, fetchCandleHistory, fetchJson, getServerTimeMs, computeTickAgeMs } from '../../shared/mt5Bridge.ts';
 import { evaluateAtCandle, generateAPlusSignal } from '../../shared/phase4Engine.ts';
 import { STRATEGY_VERSION, PARAMETER_HASH, computeFingerprint } from '../../shared/forwardObservation.ts';
 import { evaluateRiskGate } from '../../shared/riskGate.ts';
@@ -28,6 +28,10 @@ export default async function (req: Request): Promise<Response> {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
+    const body = await req.json().catch(() => ({}));
+    const symbol = body.symbol || SYMBOL;
+    const side = body.side || "LONG"; // FROZEN: NY-LONG default
+
     const tStart = Date.now();
     const bridgeUrl = secrets.get("MT5_BRIDGE_URL");
     const apiKey = secrets.get("MT5_BRIDGE_API_KEY");
@@ -39,12 +43,20 @@ export default async function (req: Request): Promise<Response> {
     const headers = apiKey ? { "X-API-Key": apiKey } : {};
     const base = bridgeUrl.replace(/\/+$/, "");
 
-    // 1. Fetch candles
+    // 1. Fetch symbol info + account + candles in parallel
     const tFetchStart = Date.now();
     let candles: any[] = [];
+    let symbolInfo: any = null;
+    let accountInfo: any = null;
     try {
-      const result = await fetchCandleHistory(base, headers, SYMBOL, "M1", FETCH_CANDLES, 500);
-      candles = result.candles || [];
+      const [candleResult, symRes, accRes] = await Promise.all([
+        fetchCandleHistory(base, headers, symbol, "M1", FETCH_CANDLES, 500),
+        fetchJson(`${base}/symbols/${symbol}`, headers),
+        fetchJson(`${base}/account`, headers),
+      ]);
+      candles = candleResult.candles || [];
+      symbolInfo = symRes.ok ? symRes.json : null;
+      accountInfo = accRes.ok ? (accRes.json?.account || accRes.json) : null;
     } catch {
       return Response.json({ status: "ERROR", reason: "CANDLE_FETCH_FAILED", order_send: "BLOCKED" });
     }
@@ -101,7 +113,6 @@ export default async function (req: Request): Promise<Response> {
     const tIctStart = Date.now();
     const window = candles.slice(-(WINDOW_SIZE + 1), -1);
     const entryPrice = latestCandle.close;
-    const side = "LONG";
     const analysis = evaluateAtCandle(window, side);
     const ictLatencyMs = Date.now() - tIctStart;
 
@@ -135,7 +146,7 @@ export default async function (req: Request): Promise<Response> {
 
     // 5. Duplicate check (fingerprint)
     const fingerprint = computeFingerprint({
-      symbol: SYMBOL,
+      symbol: symbol,
       signal_timestamp: new Date(latestCandle.time * 1000).toISOString(),
       entry_timestamp: new Date(latestCandle.time * 1000).toISOString(),
       entry_price: signal.entry,
@@ -158,6 +169,12 @@ export default async function (req: Request): Promise<Response> {
       stop_loss: signal.stop_loss,
       side,
       take_profit: signal.tp1,
+      account_balance: accountInfo?.balance || 10000,
+      contract_size: symbolInfo?.contract_size || 100,
+      tick_value: symbolInfo?.tick_value,
+      tick_size: symbolInfo?.tick_size,
+      volume_min: symbolInfo?.volume_min,
+      volume_max: symbolInfo?.volume_max,
     });
 
     if (!riskGate.pass) {
@@ -194,7 +211,7 @@ export default async function (req: Request): Promise<Response> {
     const totalLatencyMs = Date.now() - tStart;
     const trade = await base44.entities.ForwardTrade.create({
       fingerprint,
-      symbol: SYMBOL,
+      symbol: symbol,
       strategy_version: STRATEGY_VERSION,
       parameter_hash: PARAMETER_HASH,
       signal_timestamp: new Date(latestCandle.time * 1000).toISOString(),
