@@ -37,6 +37,67 @@ export default async function (req: Request): Promise<Response> {
       reconciliation: { pass: false, reason: "NOT_EXECUTED" },
     };
 
+    // ── Test case simulation (DRY RUN) ─────────────────────────────────
+    if (body.test_case) {
+      const tc = body.test_case;
+      const allPass = (g: Record<string, any>) => Object.entries(g)
+        .filter(([k]) => k !== "order_send" && k !== "position_sync" && k !== "reconciliation")
+        .every(([, v]) => v.pass);
+
+      const mockGates = { ...gates };
+      for (const k of ["strategy_version_check", "signal_validation", "risk_gate",
+        "duplicate_order_check", "position_check", "mt5_health",
+        "order_size_validation", "sl_tp_validation"]) {
+        mockGates[k] = { pass: true, reason: "MOCK_PASS" };
+      }
+
+      switch (tc) {
+        case "VALID_SIGNAL": break;
+        case "DUPLICATE_SIGNAL": mockGates.duplicate_order_check = { pass: false, reason: "DUPLICATE_DETECTED" }; break;
+        case "STALE_TICK": mockGates.mt5_health = { pass: false, reason: "SIMULATED_STALE_TICK" }; break;
+        case "OPEN_POSITION": mockGates.position_check = { pass: false, reason: "POSITION_ALREADY_OPEN (1)" }; break;
+        case "RISK_EXCEEDED": mockGates.risk_gate = { pass: false, reason: "FAIL: max_risk_per_trade" }; break;
+        case "DAILY_LOSS_EXCEEDED": mockGates.risk_gate = { pass: false, reason: "FAIL: max_daily_loss" }; break;
+        case "WRONG_STRATEGY_HASH": mockGates.strategy_version_check = { pass: false, reason: "STRATEGY_VERSION_MISMATCH" }; break;
+        case "INVALID_SL": mockGates.signal_validation = { pass: false, reason: "SL_GE_ENTRY" }; break;
+        case "INVALID_SIZE": mockGates.order_size_validation = { pass: false, reason: "ZERO_SL_DISTANCE" }; break;
+        case "BRIDGE_DOWN": mockGates.mt5_health = { pass: false, reason: "BRIDGE_UNREACHABLE" }; break;
+        case "ORDER_REJECTED": break;
+        case "POSITION_MISMATCH": mockGates.position_check = { pass: false, reason: "POSITION_MISMATCH" }; break;
+        case "UNKNOWN_POSITION": mockGates.position_check = { pass: false, reason: "UNKNOWN_POSITION (1)" }; break;
+        case "RECONCILIATION_FAILURE": mockGates.mt5_health = { pass: false, reason: "RECONCILIATION_FAIL" }; break;
+        default: return Response.json({ status: "UNKNOWN_TEST_CASE", test_case: tc, order_send: "BLOCKED" });
+      }
+
+      mockGates.order_send = { pass: false, reason: "BLOCKED — GOVERNANCE_LOCK" };
+      mockGates.position_sync = { pass: false, reason: "NOT_EXECUTED" };
+      mockGates.reconciliation = { pass: false, reason: "NOT_EXECUTED" };
+
+      const tcResult = {
+        status: "DRY_RUN_TEST_CASE",
+        test_case: tc,
+        all_pre_order_pass: allPass(mockGates),
+        gates: mockGates,
+        strategy_version: STRATEGY_VERSION,
+        parameter_hash: PARAMETER_HASH,
+        order_send: "BLOCKED",
+        live_execution: "BLOCKED",
+        execution_mode: "DRY_RUN",
+        latency_ms: Date.now() - tStart,
+      };
+
+      await base44.entities.AuditLog.create({
+        event: "AUTO_ORDER_DRY_RUN_TEST",
+        category: "SYSTEM",
+        severity: "INFO",
+        actor: "auto_order_pipeline",
+        details: `Auto-Order DRY RUN Test: ${tc} — Order Send: BLOCKED`,
+        metadata: tcResult,
+      });
+
+      return Response.json(tcResult);
+    }
+
     // 1. Strategy version check
     if (signal?.strategy_version && signal.strategy_version !== STRATEGY_VERSION) {
       gates.strategy_version_check = { pass: false, reason: "STRATEGY_VERSION_MISMATCH" };

@@ -84,6 +84,12 @@ export default async function(req: Request): Promise<Response> {
     const heartbeatFresh = hb.heartbeat_fresh && (hbAgeS === null || hbAgeS <= HEARTBEAT_TIMEOUT_S);
     const heartbeatStatus = heartbeatFresh ? "FRESH" : "STALE";
 
+    // ── 3b) Error Rate Check ───────────────────────────────────────────
+    const errorRate = hb.heartbeat_failure_rate || 0;
+    const consecutiveFailures = hb.heartbeat_consecutive_failures || 0;
+    const errorRatePass = errorRate < 0.1 && consecutiveFailures < 3;
+    const errorRateStatus = errorRatePass ? "PASS" : "FAIL";
+
     // ── 4) Tick Freshness Check ────────────────────────────────────────
     const tickAgeMs = computeTickAgeMs(tickJ);
     const tickFresh = tickAgeMs !== null && tickAgeMs <= FRESHNESS_THRESHOLD_MS;
@@ -102,8 +108,13 @@ export default async function(req: Request): Promise<Response> {
     const bridgeTier = verification.tier || "BACKEND_CONNECTED";
     const bridgeContractOk = verification.tick === true && verification.account === true;
 
+    // ── 7b) Full Reconciliation ────────────────────────────────────────
+    const tickHasData = tickJ.bid != null && tickJ.ask != null;
+    const reconciliationPass = bridgeContractOk && tickHasData && pos.ok;
+    const reconciliationStatus = reconciliationPass ? "PASS" : "FAIL";
+
     // ── 8) Overall Readiness ──────────────────────────────────────────
-    const allReady = heartbeatFresh && tickFresh && accountSyncOk && positionSyncOk && bridgeContractOk;
+    const allReady = heartbeatFresh && tickFresh && accountSyncOk && positionSyncOk && bridgeContractOk && errorRatePass && reconciliationPass;
     const executionReadiness = allReady ? "READY" : "NOT_READY";
 
     const result = {
@@ -142,6 +153,18 @@ export default async function(req: Request): Promise<Response> {
           ticket: p.ticket, symbol: p.symbol, direction: p.side,
           size: p.volume, entry: p.entry, sl: p.sl || null, tp: p.tp || null,
         })),
+      },
+      error_rate: {
+        status: errorRateStatus,
+        failure_rate: errorRate,
+        consecutive_failures: consecutiveFailures,
+        threshold: 0.1,
+      },
+      reconciliation: {
+        status: reconciliationStatus,
+        bridge_contract: bridgeContractOk,
+        tick_data_valid: tickHasData,
+        position_sync: pos.ok,
       },
       order_send: "BLOCKED",
       live_authorization: "BLOCKED",
