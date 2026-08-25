@@ -23,12 +23,17 @@ input string   EaId            = "QP-EA-VANTAGE-01";
 input string   EaVersion        = "1.0.0";
 input int      HeartbeatIntervalSec = 5;       // alle 5s posten (healthy < 10s)
 input string   SymbolFilter     = "XAUUSD";    // komma-separiert
+input int      MaxRetries       = 3;           // max. Versuche pro Heartbeat
+input int      RetryBackoffMs1  = 500;          // Backoff nach Versuch 1 (ms)
+input int      RetryBackoffMs2  = 1000;         // Backoff nach Versuch 2 (ms)
+input int      RequestTimeoutMs = 1500;         // Timeout pro WebRequest (ms)
 
 //--- Globals
 string  g_symbols[];
 datetime g_lastPost = 0;
 string  g_lastError = "";
 int     g_postCount = 0;
+int     g_retrySuccessCount = 0;  // nach Retry erfolgreich wiederhergestellte Heartbeats
 
 //+------------------------------------------------------------------+
 //| Expert initialization                                             |
@@ -147,7 +152,7 @@ void PostHeartbeat()
    payload += "\"last_tick_time\":\"" + lastTickTime + "\"";
    payload += "}";
 
-   // HTTP POST
+   // --- HTTP POST mit Retry-Logik (max. 3 Versuche, Backoff 500/1000ms) ---
    string headers = "Content-Type: application/json\r\n";
    if(BridgeApiKey != "")
       headers += "X-API-Key: " + BridgeApiKey + "\r\n";
@@ -156,31 +161,106 @@ void PostHeartbeat()
    string resultHeaders;
 
    StringToCharArray(payload, post, 0, StringLen(payload));
-   // Null-Terminator entfernen
    ArrayResize(post, StringLen(payload));
 
    string url = BridgeUrl;
-   int timeout = 5000; // 5s Timeout
+   bool success = false;
 
-   ResetLastError();
-   int res = WebRequest("POST", url, headers, timeout, post, result, resultHeaders);
+   for(int attempt = 1; attempt <= MaxRetries; attempt++)
+   {
+      ArrayResize(result, 0);
+      resultHeaders = "";
+      ResetLastError();
+      int res = WebRequest("POST", url, headers, RequestTimeoutMs, post, result, resultHeaders);
+      int errCode = GetLastError();
 
-   if(res == 200)
-   {
-      g_postCount++;
-      g_lastError = "";
-      // Antwort parsen (optional — nur State extrahieren)
-      string response = CharArrayToString(result);
-      // Log nur alle 60 Posts (alle ~5min bei 5s Intervall)
-      if(g_postCount % 60 == 1)
-         Print("[QuantPilot-Heartbeat] POST OK #", g_postCount, " — ", response);
+      if(res == 200)
+      {
+         success = true;
+         g_postCount++;
+         g_lastError = "";
+         if(attempt > 1)
+         {
+            g_retrySuccessCount++;
+            Print("[QuantPilot-Heartbeat] POST OK #", g_postCount,
+                  " attempt=", attempt, "/", MaxRetries, " (recovered after retry)");
+         }
+         else
+         {
+            if(g_postCount % 60 == 1)
+            {
+               string response = CharArrayToString(result);
+               Print("[QuantPilot-Heartbeat] POST OK #", g_postCount, " — ", response);
+            }
+         }
+         break;
+      }
+
+      string reason = ClassifyError(res, errCode);
+      bool retryable = IsRetryableError(res, errCode);
+
+      if(!retryable)
+      {
+         g_lastError = "HTTP " + IntegerToString(res) + " err=" + IntegerToString(errCode) + " reason=" + reason;
+         Print("[QuantPilot-Heartbeat] POST FAILED attempt=", attempt, "/", MaxRetries,
+               " — HTTP ", res, " err=", errCode, " reason=", reason, " (permanent — no retry)");
+         break;
+      }
+
+      if(attempt >= MaxRetries)
+      {
+         g_lastError = "HTTP " + IntegerToString(res) + " err=" + IntegerToString(errCode) + " reason=" + reason;
+         Print("[QuantPilot-Heartbeat] POST FAILED FINAL — HTTP ", res, " err=", errCode,
+               " reason=", reason, " attempts=", attempt, "/", MaxRetries);
+         break;
+      }
+
+      int backoffMs = (attempt == 1) ? RetryBackoffMs1 : RetryBackoffMs2;
+      Print("[QuantPilot-Heartbeat] POST FAILED attempt=", attempt, "/", MaxRetries,
+            " — HTTP ", res, " err=", errCode, " reason=", reason);
+      Print("[QuantPilot-Heartbeat] RETRY in ", backoffMs, " ms");
+      Sleep(backoffMs);
    }
-   else
-   {
-      g_lastError = "HTTP " + IntegerToString(res) + " err=" + IntegerToString(GetLastError());
-      Print("[QuantPilot-Heartbeat] POST FAILED — ", g_lastError);
    }
-}
+
+   //+------------------------------------------------------------------+
+   //| Fehler klassifizieren — HTTP-Code + MQL5 GetLastError()           |
+   //+------------------------------------------------------------------+
+   string ClassifyError(int httpCode, int errCode)
+   {
+   if(httpCode == -1)
+   {
+      if(errCode == 4060) return "ERR_REQUEST_NOT_ALLOWED (4060)";
+      if(errCode == 4014) return "ERR_URL_NOT_ALLOWLISTED (4014)";
+      if(errCode == 4061) return "ERR_REQUEST_SEND_FAILED (4061)";
+      return "TRANSPORT_ERROR err=" + IntegerToString(errCode);
+   }
+   if(httpCode == 502) return "HTTP_502_BAD_GATEWAY";
+   if(httpCode == 503) return "HTTP_503_SERVICE_UNAVAILABLE";
+   if(httpCode == 504) return "HTTP_504_GATEWAY_TIMEOUT";
+   if(httpCode == 400) return "HTTP_400_BAD_REQUEST";
+   if(httpCode == 401) return "HTTP_401_UNAUTHORIZED";
+   if(httpCode == 403) return "HTTP_403_FORBIDDEN";
+   if(httpCode == 500) return "HTTP_500_INTERNAL_SERVER_ERROR";
+   return "HTTP_" + IntegerToString(httpCode);
+   }
+
+   //+------------------------------------------------------------------+
+   //| Retrybar: 502/503/504, res==-1 außer 4060/4014                    |
+   //+------------------------------------------------------------------+
+   bool IsRetryableError(int httpCode, int errCode)
+   {
+   if(httpCode == 502 || httpCode == 503 || httpCode == 504)
+      return true;
+   if(httpCode == -1)
+   {
+      if(errCode == 4060) return false;  // WebRequest nicht erlaubt
+      if(errCode == 4014) return false;  // URL/Allowlist-Problem
+      return true;                       // sonstiger Transportfehler → retry
+   }
+   // 400/401/403/500 → permanent → kein Retry
+   return false;
+   }
 
 //+------------------------------------------------------------------+
 //| Timer deinitialisieren                                            |
