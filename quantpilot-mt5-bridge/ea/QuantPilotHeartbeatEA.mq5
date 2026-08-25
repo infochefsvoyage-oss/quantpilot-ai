@@ -23,9 +23,10 @@ input string   EaId            = "QP-EA-VANTAGE-01";
 input string   EaVersion        = "1.0.0";
 input int      HeartbeatIntervalSec = 5;       // alle 5s posten (healthy < 10s)
 input string   SymbolFilter     = "XAUUSD";    // komma-separiert
-input int      MaxRetries       = 3;           // max. Versuche pro Heartbeat
-input int      RetryBackoffMs1  = 500;          // Backoff nach Versuch 1 (ms)
-input int      RetryBackoffMs2  = 1000;         // Backoff nach Versuch 2 (ms)
+input int      MaxRetries       = 4;           // max. Versuche pro Heartbeat
+input int      RetryBackoffMs1  = 250;          // Backoff nach Versuch 1 (ms)
+input int      RetryBackoffMs2  = 500;          // Backoff nach Versuch 2 (ms)
+input int      RetryBackoffMs3  = 1000;         // Backoff nach Versuch 3 (ms)
 input int      RequestTimeoutMs = 1500;         // Timeout pro WebRequest (ms)
 
 //--- Globals
@@ -152,7 +153,7 @@ void PostHeartbeat()
    payload += "\"last_tick_time\":\"" + lastTickTime + "\"";
    payload += "}";
 
-   // --- HTTP POST mit Retry-Logik (max. 3 Versuche, Backoff 500/1000ms) ---
+   // --- HTTP POST mit Retry-Logik (max. 4 Versuche, Backoff 250/500/1000ms + Jitter) ---
    string headers = "Content-Type: application/json\r\n";
    if(BridgeApiKey != "")
       headers += "X-API-Key: " + BridgeApiKey + "\r\n";
@@ -165,6 +166,7 @@ void PostHeartbeat()
 
    string url = BridgeUrl;
    bool success = false;
+   uint startTimeMs = GetTickCount();
 
    for(int attempt = 1; attempt <= MaxRetries; attempt++)
    {
@@ -199,27 +201,41 @@ void PostHeartbeat()
       string reason = ClassifyError(res, errCode);
       bool retryable = IsRetryableError(res, errCode);
 
+      // Auth-Fehler (401/403) — explizit loggen, kein Retry
+      if(res == 401 || res == 403)
+      {
+         g_lastError = "AUTH_FAILURE http=" + IntegerToString(res) + " reason=" + reason;
+         Print("[QuantPilot-Heartbeat] AUTH FAILURE http=", res, " attempt=", attempt, "/", MaxRetries);
+         break;
+      }
+
       if(!retryable)
       {
-         g_lastError = "HTTP " + IntegerToString(res) + " err=" + IntegerToString(errCode) + " reason=" + reason;
-         Print("[QuantPilot-Heartbeat] POST FAILED attempt=", attempt, "/", MaxRetries,
-               " — HTTP ", res, " err=", errCode, " reason=", reason, " (permanent — no retry)");
+         g_lastError = "http=" + IntegerToString(res) + " err=" + IntegerToString(errCode) + " reason=" + reason;
+         Print("[QuantPilot-Heartbeat] POST FAILED http=", res, " attempt=", attempt, "/", MaxRetries,
+               " reason=", reason, " (permanent — no retry)");
          break;
       }
 
       if(attempt >= MaxRetries)
       {
-         g_lastError = "HTTP " + IntegerToString(res) + " err=" + IntegerToString(errCode) + " reason=" + reason;
-         Print("[QuantPilot-Heartbeat] POST FAILED FINAL — HTTP ", res, " err=", errCode,
-               " reason=", reason, " attempts=", attempt, "/", MaxRetries);
+         uint elapsedMs = GetTickCount() - startTimeMs;
+         g_lastError = "http=" + IntegerToString(res) + " err=" + IntegerToString(errCode) + " reason=" + reason;
+         Print("[QuantPilot-Heartbeat] POST FAILED http=", res, " attempts=", attempt, "/", MaxRetries,
+               " elapsed_ms=", elapsedMs, " reason=", reason);
          break;
       }
 
-      int backoffMs = (attempt == 1) ? RetryBackoffMs1 : RetryBackoffMs2;
-      Print("[QuantPilot-Heartbeat] POST FAILED attempt=", attempt, "/", MaxRetries,
-            " — HTTP ", res, " err=", errCode, " reason=", reason);
-      Print("[QuantPilot-Heartbeat] RETRY in ", backoffMs, " ms");
-      Sleep(backoffMs);
+      // Backoff mit Jitter (0-99ms)
+      int baseBackoff = RetryBackoffMs1;
+      if(attempt == 2) baseBackoff = RetryBackoffMs2;
+      else if(attempt == 3) baseBackoff = RetryBackoffMs3;
+      int jitter = MathRand() % 100;
+      int delayMs = baseBackoff + jitter;
+
+      Print("[QuantPilot-Heartbeat] POST RETRY attempt=", attempt + 1, "/", MaxRetries,
+            " http=", res, " delay_ms=", delayMs, " reason=", reason);
+      Sleep(delayMs);
    }
    }
 
@@ -228,38 +244,40 @@ void PostHeartbeat()
    //+------------------------------------------------------------------+
    string ClassifyError(int httpCode, int errCode)
    {
-   if(httpCode == -1)
-   {
-      if(errCode == 4060) return "ERR_REQUEST_NOT_ALLOWED (4060)";
-      if(errCode == 4014) return "ERR_URL_NOT_ALLOWLISTED (4014)";
-      if(errCode == 4061) return "ERR_REQUEST_SEND_FAILED (4061)";
-      return "TRANSPORT_ERROR err=" + IntegerToString(errCode);
-   }
-   if(httpCode == 502) return "HTTP_502_BAD_GATEWAY";
-   if(httpCode == 503) return "HTTP_503_SERVICE_UNAVAILABLE";
-   if(httpCode == 504) return "HTTP_504_GATEWAY_TIMEOUT";
-   if(httpCode == 400) return "HTTP_400_BAD_REQUEST";
-   if(httpCode == 401) return "HTTP_401_UNAUTHORIZED";
-   if(httpCode == 403) return "HTTP_403_FORBIDDEN";
-   if(httpCode == 500) return "HTTP_500_INTERNAL_SERVER_ERROR";
-   return "HTTP_" + IntegerToString(httpCode);
+      if(httpCode == -1)
+      {
+         if(errCode == 4060) return "ERR_REQUEST_NOT_ALLOWED (4060)";
+         if(errCode == 4014) return "ERR_URL_NOT_ALLOWLISTED (4014)";
+         if(errCode == 4061) return "ERR_REQUEST_SEND_FAILED (4061)";
+         return "TRANSPORT_ERROR err=" + IntegerToString(errCode);
+      }
+      if(httpCode == 502) return "HTTP_502_BAD_GATEWAY";
+      if(httpCode == 503) return "HTTP_503_SERVICE_UNAVAILABLE";
+      if(httpCode == 504) return "HTTP_504_GATEWAY_TIMEOUT";
+      if(httpCode == 400) return "HTTP_400_BAD_REQUEST";
+      if(httpCode == 401) return "HTTP_401_UNAUTHORIZED";
+      if(httpCode == 403) return "HTTP_403_FORBIDDEN";
+      if(httpCode == 404) return "HTTP_404_NOT_FOUND";
+      if(httpCode == 500) return "HTTP_500_INTERNAL_SERVER_ERROR";
+      return "HTTP_" + IntegerToString(httpCode);
    }
 
    //+------------------------------------------------------------------+
    //| Retrybar: 502/503/504, res==-1 außer 4060/4014                    |
+   //| Nicht retrybar: 400/401/403/404/500                               |
    //+------------------------------------------------------------------+
    bool IsRetryableError(int httpCode, int errCode)
    {
-   if(httpCode == 502 || httpCode == 503 || httpCode == 504)
-      return true;
-   if(httpCode == -1)
-   {
-      if(errCode == 4060) return false;  // WebRequest nicht erlaubt
-      if(errCode == 4014) return false;  // URL/Allowlist-Problem
-      return true;                       // sonstiger Transportfehler → retry
-   }
-   // 400/401/403/500 → permanent → kein Retry
-   return false;
+      if(httpCode == 502 || httpCode == 503 || httpCode == 504)
+         return true;
+      if(httpCode == -1)
+      {
+         if(errCode == 4060) return false;  // WebRequest nicht erlaubt
+         if(errCode == 4014) return false;  // URL/Allowlist-Problem
+         return true;                       // sonstiger Transportfehler → retry
+      }
+      // 400/401/403/404/500 → permanent → kein Retry
+      return false;
    }
 
 //+------------------------------------------------------------------+
