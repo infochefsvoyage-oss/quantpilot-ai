@@ -27,7 +27,7 @@ input int      MaxRetries       = 4;           // max. Versuche pro Heartbeat
 input int      RetryBackoffMs1  = 250;          // Backoff nach Versuch 1 (ms)
 input int      RetryBackoffMs2  = 500;          // Backoff nach Versuch 2 (ms)
 input int      RetryBackoffMs3  = 1000;         // Backoff nach Versuch 3 (ms)
-input int      RequestTimeoutMs = 1500;         // Timeout pro WebRequest (ms)
+input int      RequestTimeoutMs = 1000;         // Timeout pro WebRequest (ms) — 1000ms ensures 20s gap safe at 2 consecutive all-timeout cycles
 
 //--- Globals
 string  g_symbols[];
