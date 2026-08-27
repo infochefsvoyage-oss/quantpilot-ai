@@ -19,8 +19,7 @@ function fmtNum(v) {
   return String(v);
 }
 
-/** @param {{label: any, value: any, hint?: string, tone?: string}} props */
-/** @param {{label: any, value: any, hint?: string, tone?: string}} props */
+/** @type {import('react').NamedExoticComponent<{label: any, value: any, hint?: string, tone?: string}>} */
 const Metric = memo(function Metric({ label, value, hint = "", tone = "default" }) {
   const toneClass = {
     default: "text-foreground",
