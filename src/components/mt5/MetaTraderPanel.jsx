@@ -22,7 +22,7 @@ export default function MetaTraderPanel({ className = "" }) {
     base44.entities.MT5Connection.list("-updated_date", 1)
       .then((rows) => {
         if (!mounted) return;
-        if (rows && rows.length > 0) setConnection(rows[0]);
+        if (rows && rows.length > 0) setConnection({ ...defaultMT5Connection, ...rows[0] });
       })
       .catch(() => {})
       .finally(() => mounted && setLoading(false));
