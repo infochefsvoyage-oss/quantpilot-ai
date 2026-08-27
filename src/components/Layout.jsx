@@ -25,7 +25,8 @@ const navItems = [
   { to: "/settings", label: "Einstellungen", icon: Settings },
 ];
 
-export default function Layout() {
+/** @param {{children?: any}} props */
+export default function Layout({ children = null }) {
   const location = useLocation();
   const [emergency, setEmergency] = useState(runtimeStatus.emergency_stop);
 
