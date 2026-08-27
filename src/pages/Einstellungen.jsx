@@ -62,7 +62,7 @@ export default function Einstellungen() {
   );
 }
 
-function Toggle({ label, desc, on, set, icon }) {
+function Toggle({ label, desc, on, set, icon = null }) {
   return (
     <div className="flex items-center justify-between p-3 rounded-md border border-white/5 bg-white/[0.01]">
       <div className="flex items-center gap-2">
