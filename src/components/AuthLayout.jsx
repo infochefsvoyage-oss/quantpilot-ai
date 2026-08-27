@@ -1,6 +1,7 @@
 import React from "react";
 
-export default function AuthLayout({ icon: Icon, title, subtitle, footer, children }) {
+/** @param {{icon: any, title: string, subtitle?: string, footer?: any, children?: any}} props */
+export default function AuthLayout({ icon: Icon, title, subtitle = '', footer = null, children }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
