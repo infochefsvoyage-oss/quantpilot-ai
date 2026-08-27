@@ -1,6 +1,7 @@
 import React from "react";
 
-export default function PanelCard({ title, children, className = "", action = null }) {
+/** @param {{title?: string, children?: any, className?: string, action?: any}} props */
+export default function PanelCard({ title = "", children = null, className = "", action = null }) {
   return (
     <div className={`rounded-lg border border-border bg-card ${className}`}>
       {title && (
