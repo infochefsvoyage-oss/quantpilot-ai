@@ -123,7 +123,7 @@ export default function Risk() {
   );
 }
 
-function RiskField({ label, value, badge, danger }) {
+function RiskField({ label, value, badge = false, danger = false }) {
   return (
     <div className="flex items-center justify-between rounded-md border border-border bg-secondary/30 px-4 py-3">
       <span className="text-sm text-muted-foreground">{label}</span>
@@ -149,7 +149,7 @@ function TpCard({ level, percent, desc, color }) {
   );
 }
 
-function RuleRow({ icon: Icon, text, status, locked }) {
+function RuleRow({ icon: Icon, text, status, locked = false }) {
   return (
     <div className="flex items-center justify-between rounded-md border border-border bg-secondary/30 px-4 py-3">
       <div className="flex items-center gap-3">
