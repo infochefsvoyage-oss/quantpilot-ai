@@ -22,6 +22,7 @@ function fmtPrice(v) {
   return v.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/** @param {{label: any, value: any, tone?: string, hint?: string}} props */
 const Metric = memo(function Metric({ label, value, tone = "default", hint }) {
   const toneClass = { default: "text-foreground", fresh: "text-profit", stale: "text-loss", warn: "text-warning", cyan: "text-primary" }[tone];
   return (
@@ -33,6 +34,7 @@ const Metric = memo(function Metric({ label, value, tone = "default", hint }) {
   );
 });
 
+/** @param {{label: string, passed: boolean}} props */
 const GateRow = memo(function GateRow({ label, passed }) {
   return (
     <div className="flex items-center justify-between rounded-md border border-border bg-secondary/30 px-3 py-1.5">
@@ -42,6 +44,7 @@ const GateRow = memo(function GateRow({ label, passed }) {
   );
 });
 
+/** @param {{label: string, state: string}} props */
 const SafetyGate = memo(function SafetyGate({ label, state }) {
   const isBlocked = state === "BLOCKED" || state === "OFF";
   const isAllowed = state === "ALLOWED" || state === "TRUE" || state === "ENABLED";
@@ -53,6 +56,7 @@ const SafetyGate = memo(function SafetyGate({ label, state }) {
   );
 });
 
+/** @param {{verdict: string}} props */
 const VerdictBadge = memo(function VerdictBadge({ verdict }) {
   const config = {
     PERFORMANCE_PASS: { color: "profit", label: "PERFORMANCE_PASS" },
@@ -386,6 +390,7 @@ export default function ICTPipelineMonitor() {
   );
 }
 
+/** @param {{label: string, analysis: any, signal: any}} props */
 const ICTSideResult = memo(function ICTSideResult({ label, analysis, signal }) {
   if (!analysis || !analysis.components) {
     return (
