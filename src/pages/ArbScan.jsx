@@ -16,11 +16,11 @@ import {
 import PanelCard from "@/components/PanelCard";
 import StatusBadge from "@/components/StatusBadge";
 import {
-  arbOpportunities = [],
-  arbRegimeStats = {},
-  arbExchangeStatus = [],
-  arbStatusMeta = {},
-  regimeMeta = {},
+  arbOpportunities,
+  arbRegimeStats,
+  arbExchangeStatus,
+  arbStatusMeta,
+  regimeMeta,
 } from "@/lib/extendedData";
 
 const AUTO_ORDER = false;
