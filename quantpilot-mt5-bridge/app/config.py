@@ -25,7 +25,7 @@ class Settings(BaseSettings):
 
     # Verification expectations
     expected_broker_company: str = "Vantage"
-    expected_server: str = "VantageMarkets-Live"
+    expected_server: str = "VantageMarkets-Live 14"
 
     # Symbol discovery
     symbol_canonical: str = "XAUUSD"
