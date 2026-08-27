@@ -327,7 +327,7 @@ function ExchangeTickerCard({ name, data }) {
   );
 }
 
-function ConnRow({ label, ok, locked }) {
+function ConnRow({ label, ok, locked = false }) {
   return (
     <div className="flex items-center justify-between rounded-md border border-border bg-secondary/30 px-3 py-2">
       <span className="text-sm text-muted-foreground">{label}</span>
