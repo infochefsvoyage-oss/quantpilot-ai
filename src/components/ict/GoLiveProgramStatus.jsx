@@ -201,7 +201,7 @@ function StateBox({ label, status, color }) {
   );
 }
 
-function SummaryBox({ label, value, color }) {
+function SummaryBox({ label, value, color = "muted" }) {
   const colors = { profit: "text-profit", loss: "text-loss", warning: "text-warning", primary: "text-primary", muted: "text-foreground" };
   return (
     <div className="rounded-md border border-border bg-secondary/30 p-2.5">
