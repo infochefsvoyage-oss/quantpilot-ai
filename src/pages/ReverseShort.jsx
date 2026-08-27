@@ -173,7 +173,7 @@ export default function ReverseShort() {
   );
 }
 
-function Metric({ label, value, color, small }) {
+function Metric({ label, value, color = "muted", small = false }) {
   const colors = { profit: "text-profit", loss: "text-loss", warning: "text-warning", cyan: "text-primary", foreground: "text-foreground", muted: "text-muted-foreground" };
   return (
     <div className="rounded-md border border-border bg-secondary/30 px-3 py-2.5">
@@ -183,7 +183,7 @@ function Metric({ label, value, color, small }) {
   );
 }
 
-function PriceRow({ label, value, color }) {
+function PriceRow({ label, value, color = "foreground" }) {
   const colors = { profit: "text-profit", loss: "text-loss", warning: "text-warning", cyan: "text-primary", foreground: "text-foreground" };
   return (
     <div className="flex items-center justify-between rounded-md border border-border bg-secondary/30 px-4 py-3">
