@@ -20,7 +20,8 @@ function fmtNum(v) {
 }
 
 /** @param {{label: any, value: any, hint?: string, tone?: string}} props */
-const Metric = memo(function Metric({ label, value, hint, tone = "default" }) {
+/** @param {{label: any, value: any, hint?: string, tone?: string}} props */
+const Metric = memo(function Metric({ label, value, hint = "", tone = "default" }) {
   const toneClass = {
     default: "text-foreground",
     fresh: "text-profit",
