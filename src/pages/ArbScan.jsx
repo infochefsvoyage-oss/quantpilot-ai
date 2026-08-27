@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { base44 } from "@/api/base44Client";
 import {
   Radar,
   TrendingUp,
@@ -38,8 +39,13 @@ const REQUIRED_OPPORTUNITIES = 100;
 export default function ArbScan() {
   const [filterRegime, setFilterRegime] = useState("ALL");
   const [filterProfitable, setFilterProfitable] = useState(false);
+  const [liveData, setLiveData] = useState(null);
 
-  const opportunities = Array.isArray(arbOpportunities)
+  const opportunities = Array.isArray(liveData?.opportunities)
+    ? liveData.opportunities
+    : Array.isArray(arbOpportunities)
+      ? arbOpportunities
+      : [];
     ? arbOpportunities
     : [];
 
@@ -80,6 +86,9 @@ export default function ArbScan() {
   ).length;
 
   const captureRate = calculateCaptureRate(opportunities);
+  const dataSource = liveData ? "BASE44" : "LOCAL_FALLBACK";
+  const pipeline = liveData?.pipeline || buildMeasurementPipeline(opportunities);
+  const feedHealth = liveData?.feed_health || summarizeFeedHealth(opportunities);
 
   const captureReady =
     completedOpportunities >= REQUIRED_OPPORTUNITIES &&
@@ -104,8 +113,13 @@ export default function ArbScan() {
 
           <div className="flex flex-wrap gap-2">
             <StatusBadge
-              status={`DATA ${DATA_HEALTH.status}`}
-              color="warning"
+              status={`DATA ${liveData?.data_health || DATA_HEALTH.status}`}
+              color={liveData?.data_health === "HEALTHY" ? "profit" : "warning"}
+            />
+
+            <StatusBadge
+              status={`SOURCE ${dataSource}`}
+              color={liveData ? "profit" : "warning"}
             />
 
             <StatusBadge
