@@ -1,6 +1,7 @@
 import React from "react";
 
-export default function GateIndicator({ label, passed }) {
+/** @param {{label?: string, passed?: boolean}} props */
+export default function GateIndicator({ label = "Gate", passed = false }) {
   return (
     <div className="flex items-center justify-between rounded-md border border-border bg-secondary/50 px-3 py-2">
       <span className="text-xs text-muted-foreground">{label}</span>
