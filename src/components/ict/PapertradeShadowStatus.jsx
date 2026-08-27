@@ -353,7 +353,8 @@ export default function PapertradeShadowStatus() {
   );
 }
 
-function ModeBox({ label, value, color, icon: Icon }) {
+/** @param {{label: string, value: any, color: string, icon?: any}} props */
+function ModeBox({ label, value, color, icon: Icon = null }) {
   const colors = {
     primary: "text-primary border-primary/20 bg-primary/5",
     profit: "text-profit border-profit/20 bg-profit/5",
