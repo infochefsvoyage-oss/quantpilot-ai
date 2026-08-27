@@ -93,7 +93,7 @@ function JournalStat({ label, value, unit = "", color = "muted" }) {
   );
 }
 
-function MetricBox({ label, value, unit, color = "muted" }) {
+function MetricBox({ label, value, unit = "", color = "muted" }) {
   const colors = { muted: "text-foreground", profit: "text-profit", loss: "text-loss", primary: "text-primary", warning: "text-warning" };
   return (
     <div className="rounded-md border border-border bg-secondary/30 px-3 py-2">
