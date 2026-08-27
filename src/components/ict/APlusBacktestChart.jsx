@@ -246,7 +246,7 @@ export default function APlusBacktestChart() {
   );
 }
 
-function BacktestKpi({ icon: Icon, label, value, sub, color }) {
+function BacktestKpi({ icon: Icon, label, value, sub = "", color = "muted" }) {
   const colors = {
     primary: "text-primary bg-primary/10",
     profit: "text-profit bg-profit/10",
