@@ -445,7 +445,7 @@ export default function Go3MT5E2EAudit() {
   );
 }
 
-function BridgeMetric({ icon: Icon, label, value, status }) {
+function BridgeMetric({ icon: Icon, label, value, status = "FAIL" }) {
   return (
     <div className={`rounded-md border p-2.5 ${status === "PASS" ? "border-profit/20 bg-profit/5" : "border-loss/20 bg-loss/5"}`}>
       <div className="flex items-center gap-1.5">
@@ -485,7 +485,7 @@ function SafetyItem({ label, value, pass }) {
   );
 }
 
-function GovStateItem({ label, value, danger }) {
+function GovStateItem({ label, value, danger = false }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-muted-foreground">{label}</span>
