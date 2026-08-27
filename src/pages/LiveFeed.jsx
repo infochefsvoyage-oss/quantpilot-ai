@@ -75,7 +75,7 @@ export default function LiveFeed() {
   );
 }
 
-function FeedStat({ label, value, unit, color = "muted" }) {
+function FeedStat({ label, value, unit = "", color = "muted" }) {
   const colors = { muted: "text-foreground", profit: "text-profit", loss: "text-loss", primary: "text-primary", warning: "text-warning" };
   return (
     <div className="rounded-lg border border-border bg-card p-4">
