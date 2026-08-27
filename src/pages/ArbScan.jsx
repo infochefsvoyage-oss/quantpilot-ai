@@ -929,7 +929,9 @@ function isActuallyEligibleForProfitDisplay(opp) {
    * A positive calculated spread is not enough when the
    * opportunity is stale, unhealthy or blocked.
    */
-  if (opp.data_health === "FALSE") return false;
+  if (opp.source_type === "RESEARCH_DEX") return false;
+  if (opp.data_health !== "HEALTHY") return false;
+  if (opp.feed_health && opp.feed_health !== "HEALTHY") return false;
   if (opp.execution_health === "FALSE") return false;
   if (opp.broker_health === "FALSE") return false;
 
@@ -975,7 +977,7 @@ function summarizeFeedHealth(opportunities) {
 }
 
 function isGenuineOpportunity(opp) {
-  return !!opp && opp.source_type === "LIVE_CEX" && opp.status !== "MOCK";
+  return !!opp && opp.source_type === "LIVE_CEX" && opp.status !== "MOCK" && opp.dex_execution_mode !== "RESEARCH_ONLY";
 }
 
 function calculateCaptureRate(opportunities) {
