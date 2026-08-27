@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import {
   Radar,
@@ -40,6 +40,25 @@ export default function ArbScan() {
   const [filterRegime, setFilterRegime] = useState("ALL");
   const [filterProfitable, setFilterProfitable] = useState(false);
   const [liveData, setLiveData] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    base44.entities.ArbOpportunity.list("-created_date", 500)
+      .then((records) => {
+        if (!active) return;
+        const normalized = Array.isArray(records) ? records : [];
+        setLiveData({
+          opportunities: normalized,
+          data_health: summarizeDataHealth(normalized),
+          feed_health: summarizeFeedHealth(normalized),
+          pipeline: buildMeasurementPipeline(normalized),
+        });
+      })
+      .catch(() => {
+        if (active) setLiveData(null);
+      });
+    return () => { active = false; };
+  }, []);
 
   const opportunities = Array.isArray(liveData?.opportunities)
     ? liveData.opportunities
@@ -925,10 +944,16 @@ function isActuallyEligibleForProfitDisplay(opp) {
   );
 }
 
+function summarizeDataHealth(opportunities) {
+  if (opportunities.length === 0) return "DEGRADED";
+  if (opportunities.some(o => o.data_health === "FAILED")) return "DEGRADED";
+  return opportunities.every(o => o.data_health === "HEALTHY") ? "HEALTHY" : "DEGRADED";
+}
+
 function buildMeasurementPipeline(opportunities) {
   return [
     { name: "RAW OPPORTUNITY", status: opportunities.length > 0 ? "PASS" : "BLOCKED" },
-    { name: "DATA HEALTH", status: opportunities.length > 0 && opportunities.every(o => o.data_health !== "FAILED") ? "PASS" : "DEGRADED" },
+    { name: "DATA HEALTH", status: summarizeDataHealth(opportunities) === "HEALTHY" ? "PASS" : "DEGRADED" },
     { name: "FRESHNESS / LATENCY", status: opportunities.length > 0 && opportunities.every(o => o.freshness_valid !== false) ? "PASS" : "BLOCKED" },
     { name: "CLOCK-SYNC", status: opportunities.length > 0 && opportunities.every(o => o.clock_sync_valid !== false) ? "PASS" : "BLOCKED" },
     { name: "ORDERBOOK SLIPPAGE", status: opportunities.length > 0 && opportunities.every(o => o.orderbook_slippage_valid !== false) ? "PASS" : "BLOCKED" },
@@ -936,6 +961,8 @@ function buildMeasurementPipeline(opportunities) {
     { name: "ADVERSE / INVENTORY", status: opportunities.length > 0 && opportunities.every(o => o.adverse_selection_gate === "PASS" && o.inventory_gate === "PASS") ? "PASS" : "BLOCKED" },
     { name: "NET-PROFIT", status: opportunities.some(isActuallyEligibleForProfitDisplay) ? "PASS" : "BLOCKED" },
     { name: "MASTER RISK / PAPER", status: "BLOCKED" },
+    { name: "CAPTURE ≥100", status: opportunities.filter(isGenuineOpportunity).length >= REQUIRED_OPPORTUNITIES ? "PASS" : "BLOCKED" },
+    { name: "STATISTICAL AUDIT", status: "BLOCKED" },
   ];
 }
 
