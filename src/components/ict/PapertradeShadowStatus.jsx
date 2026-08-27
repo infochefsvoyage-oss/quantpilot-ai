@@ -370,6 +370,7 @@ function ModeBox({ label, value, color, icon: Icon }) {
   );
 }
 
+/** @param {{icon?: any, label: string, value: any, sub?: any, color?: string}} props */
 function StatBox({ icon: Icon = null, label, value, sub = "", color = "muted" }) {
   const colors = {
     primary: "text-primary",
