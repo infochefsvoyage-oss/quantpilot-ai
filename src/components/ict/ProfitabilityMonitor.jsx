@@ -220,7 +220,7 @@ function SectionLabel({ icon: Icon, label }) {
   );
 }
 
-function StatBox({ label, value, sub, color }) {
+function StatBox({ label, value, sub = "", color = "muted" }) {
   const colors = { primary: "text-primary", profit: "text-profit", loss: "text-loss", warning: "text-warning", muted: "text-muted-foreground", cyan: "text-primary" };
   return (
     <div className="rounded-md border border-border bg-secondary/30 p-2">
