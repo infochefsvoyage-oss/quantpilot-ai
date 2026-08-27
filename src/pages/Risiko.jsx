@@ -96,7 +96,7 @@ function Field({ label, children }) {
   );
 }
 
-function Slider({ label, value, min, max, step, onChange, locked }) {
+function Slider({ label, value, min, max, step, onChange, locked = false }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
