@@ -1,5 +1,5 @@
 import React from "react";
-import { Briefcase, TrendingUp, TrendingDown } from "lucide-react";
+import { Briefcase } from "lucide-react";
 import {
   portfolioSummary, riskDefaults, openTrades, closedTradesToday,
   formatCurrency, formatPnl,

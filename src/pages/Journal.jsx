@@ -1,5 +1,5 @@
 import React from "react";
-import { BookOpen, TrendingUp, TrendingDown, Target } from "lucide-react";
+import { BookOpen, Target } from "lucide-react";
 import { journalEntries, formatPnl } from "@/lib/quantData";
 import PanelCard from "@/components/PanelCard";
 import StatusBadge from "@/components/StatusBadge";

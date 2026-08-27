@@ -2,8 +2,6 @@ import React, { useState } from "react";
 import { Bot, Send, Loader2 } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import PanelCard from "@/components/PanelCard";
-import MessageBubble from "@/components/agents/MessageBubble";
-import FunctionDisplay from "@/components/agents/FunctionDisplay";
 
 const PROMPT = `Analysiere die aktuelle SOLUSDT SHORT Live-Position (Trade ID: 6a50b43ae1a3bb7d2f526151), die seit dem 10.07.2026 offen ist. 
 Entry: 79.50, SL: 83.50, TP: 67.50, Size: 12.5 SOL, Risiko: $50 (0.5% Equity).

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plug, Lock, CheckCircle2, XCircle, Radio, Zap, RefreshCw, Globe, Ban } from "lucide-react";
+import { Plug, Lock, CheckCircle2, XCircle, Radio, RefreshCw, Globe, Ban } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { exchangeConnections } from "@/lib/quantData";
 import PanelCard from "@/components/PanelCard";

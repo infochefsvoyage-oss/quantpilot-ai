@@ -1,13 +1,12 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import {
   TrendingUp, TrendingDown, Crosshair, ShieldAlert, Lock,
-  AlertTriangle, Activity, Gauge, Layers, Radio,
+  AlertTriangle, Gauge, Layers,
 } from "lucide-react";
 import {
   runtimeStatus, riskDefaults, portfolioSummary, sampleSignals,
-  openTrades, pendingGovernance, ulfWarnings, decisionConfig,
-  formatCurrency, formatPnl,
+  openTrades, pendingGovernance, ulfWarnings, decisionConfig, formatPnl,
 } from "@/lib/quantData";
 import PanelCard from "@/components/PanelCard";
 import StatusBadge from "@/components/StatusBadge";

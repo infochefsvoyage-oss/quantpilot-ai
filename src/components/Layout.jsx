@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link, useLocation, Outlet } from "react-router-dom";
 import {
   LayoutDashboard, Crosshair, Briefcase, ShieldAlert, Lock,
-  BookOpen, Plug, FlaskConical, Radio, Settings, Zap, Activity,
+  BookOpen, Plug, FlaskConical, Radio, Settings, Zap,
   Radar, Shield, TrendingDown, Bot, ScanLine,
 } from "lucide-react";
 import { runtimeStatus } from "@/lib/quantData";

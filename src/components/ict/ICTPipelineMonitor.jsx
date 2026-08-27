@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, memo, useMemo } from "react";
-import { Activity, Radar, ShieldCheck, Lock, RefreshCw, Play, Pause, AlertTriangle, Clock, Gauge } from "lucide-react";
+import { Activity, Radar, ShieldCheck, RefreshCw, Play, Pause, Clock, Gauge } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import PanelCard from "@/components/PanelCard";
 import StatusBadge from "@/components/StatusBadge";

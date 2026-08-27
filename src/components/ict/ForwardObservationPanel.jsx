@@ -7,8 +7,7 @@ import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import PanelCard from "@/components/PanelCard";
 import {
-  Lock, Activity, Database, Ban, ShieldCheck, Radio,
-  CheckCircle2, XCircle, AlertTriangle, PlayCircle, Loader2, Clock,
+  Lock, Activity, Ban, ShieldCheck, Radio, XCircle, AlertTriangle, PlayCircle, Loader2, Clock,
 } from "lucide-react";
 
 export default function ForwardObservationPanel() {

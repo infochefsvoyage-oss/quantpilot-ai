@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Radar, Radio, AlertTriangle, Wifi, WifiOff } from "lucide-react";
-import { mockICTSignals, feedStatus, evaluateDecision, DECISION_CONFIG } from "@/lib/ictData";
+import { Radar, AlertTriangle, Wifi, WifiOff } from "lucide-react";
+import { mockICTSignals, feedStatus, evaluateDecision } from "@/lib/ictData";
 import PanelCard from "@/components/PanelCard";
 import KillzoneClock from "@/components/ict/KillzoneClock";
 import ICTSignalCard from "@/components/ict/ICTSignalCard";

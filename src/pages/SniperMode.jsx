@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Crosshair, CheckCircle2, XCircle, Zap, ShieldCheck } from "lucide-react";
+import { Crosshair, CheckCircle2, XCircle, ShieldCheck } from "lucide-react";
 import {
   sampleSignals, decisionConfig, riskDefaults, formatPrice,
 } from "@/lib/quantData";

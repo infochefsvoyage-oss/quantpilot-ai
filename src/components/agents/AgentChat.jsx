@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { Send, Loader2, Sparkles, Bot } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import MessageBubble from "@/components/agents/MessageBubble";
-import PanelCard from "@/components/PanelCard";
 
 export default function AgentChat({ agent }) {
   const [conversation, setConversation] = useState(null);

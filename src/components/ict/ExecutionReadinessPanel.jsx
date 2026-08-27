@@ -6,8 +6,8 @@ import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import PanelCard from "@/components/PanelCard";
 import {
-  ShieldCheck, Lock, Ban, Activity, Radio, Server, Clock,
-  CheckCircle2, XCircle, AlertTriangle,
+  ShieldCheck, Lock, Ban, Activity, Radio, Server,
+  CheckCircle2, AlertTriangle,
 } from "lucide-react";
 
 export default function ExecutionReadinessPanel() {
