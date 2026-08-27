@@ -370,7 +370,7 @@ function ModeBox({ label, value, color, icon: Icon }) {
   );
 }
 
-function StatBox({ icon: Icon, label, value, sub, color }) {
+function StatBox({ icon: Icon = null, label, value, sub = "", color = "muted" }) {
   const colors = {
     primary: "text-primary",
     profit: "text-profit",
@@ -390,7 +390,7 @@ function StatBox({ icon: Icon, label, value, sub, color }) {
   );
 }
 
-function MetaItem({ label, value, mono }) {
+function MetaItem({ label, value, mono = false }) {
   return (
     <div className="flex items-center justify-between rounded-md border border-border bg-secondary/30 px-2.5 py-1.5">
       <span className="text-xs text-muted-foreground">{label}</span>
