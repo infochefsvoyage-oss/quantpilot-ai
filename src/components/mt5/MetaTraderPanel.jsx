@@ -12,6 +12,7 @@ import MT5ReadOnlyTest from "./MT5ReadOnlyTest";
 import MT5BridgeLiveCheck from "./MT5BridgeLiveCheck";
 import MT5TickMonitor from "./MT5TickMonitor";
 
+/** @param {{className?: string}} props */
 export default function MetaTraderPanel({ className = "" }) {
   const [connection, setConnection] = useState(defaultMT5Connection);
   const [loading, setLoading] = useState(true);
