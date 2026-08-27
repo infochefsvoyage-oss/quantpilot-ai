@@ -46,8 +46,6 @@ export default function ArbScan() {
     : Array.isArray(arbOpportunities)
       ? arbOpportunities
       : [];
-    ? arbOpportunities
-    : [];
 
   const filtered = useMemo(() => {
     return opportunities.filter((opp) => {
