@@ -33,7 +33,7 @@ export default function MT5EAStatus({ connection }) {
   );
 }
 
-function Field({ label, value, danger }) {
+function Field({ label, value, danger = false }) {
   return (
     <div className="rounded border border-border bg-background/40 px-2 py-1.5">
       <div className="text-muted-foreground">{label}</div>
