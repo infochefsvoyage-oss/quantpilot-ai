@@ -142,7 +142,7 @@ export default function ICTPipelineMonitor() {
       ict_signal_fresh: sigFresh?.signal_fresh ?? false,
       ict_signal_age_ms: sigFresh?.signal_age_ms ?? null,
       ict_structure_version: ictResult?.signal_freshness?.structure_version ?? null,
-      ict_engine_error: ictResult?.engine_error === true,
+      ict_engine_error: !!ictResult && "engine_error" in ictResult && ictResult.engine_error === true,
     });
     setPerfMetrics(computeICTMetrics(windowRef.current));
   }, []);
