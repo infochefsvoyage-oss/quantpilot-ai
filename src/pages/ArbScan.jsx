@@ -8,7 +8,6 @@ import {
   XCircle,
   ArrowRightLeft,
   Activity,
-  Clock3,
   ShieldAlert,
   Database,
   Gauge,
