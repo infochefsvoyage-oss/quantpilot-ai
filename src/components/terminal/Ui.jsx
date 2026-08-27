@@ -44,7 +44,8 @@ export function GateStatus({ gates }) {
   );
 }
 
-export function KpiCard({ label, value, unit, tone = 'default', hint }) {
+/** @param {{label: string, value: any, unit?: string, tone?: string, hint?: string}} props */
+export function KpiCard({ label, value, unit = '', tone = 'default', hint = '' }) {
   const tones = {
     default: 'text-slate-100',
     positive: 'text-emerald-400',
@@ -63,7 +64,8 @@ export function KpiCard({ label, value, unit, tone = 'default', hint }) {
   );
 }
 
-export function SectionCard({ title, right, children, className = '' }) {
+/** @param {{title?: string, right?: any, children?: any, className?: string}} props */
+export function SectionCard({ title, right = null, children, className = '' }) {
   return (
     <div className={`rounded-lg border border-white/5 bg-white/[0.02] ${className}`}>
       {title && (
