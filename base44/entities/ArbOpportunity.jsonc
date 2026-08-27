@@ -41,6 +41,108 @@
     "funding_cost_percent": {
       "type": "number"
     },
+    "adverse_selection_cost_percent": {
+      "type": "number"
+    },
+    "inventory_imbalance_cost_percent": {
+      "type": "number"
+    },
+    "data_health": {
+      "type": "string",
+      "enum": [
+        "HEALTHY",
+        "DEGRADED",
+        "FAILED",
+        "UNKNOWN"
+      ],
+      "default": "UNKNOWN"
+    },
+    "feed_health": {
+      "type": "string",
+      "enum": [
+        "HEALTHY",
+        "DEGRADED",
+        "HTTP_500",
+        "HTTP_502",
+        "HTTP_403",
+        "TIMEOUT",
+        "UNKNOWN"
+      ],
+      "default": "UNKNOWN"
+    },
+    "http_status": {
+      "type": "number"
+    },
+    "freshness_valid": {
+      "type": "boolean",
+      "default": false
+    },
+    "latency_ms": {
+      "type": "number"
+    },
+    "clock_sync_valid": {
+      "type": "boolean",
+      "default": false
+    },
+    "orderbook_slippage_valid": {
+      "type": "boolean",
+      "default": false
+    },
+    "adverse_selection_gate": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "REJECT",
+        "UNKNOWN"
+      ],
+      "default": "UNKNOWN"
+    },
+    "inventory_gate": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "REJECT",
+        "UNKNOWN"
+      ],
+      "default": "UNKNOWN"
+    },
+    "source_type": {
+      "type": "string",
+      "enum": [
+        "LIVE_CEX",
+        "RESEARCH_DEX",
+        "UNKNOWN"
+      ],
+      "default": "UNKNOWN"
+    },
+    "theoretical_net_profit": {
+      "type": "number"
+    },
+    "realized_net_profit": {
+      "type": "number"
+    },
+    "capture_eligible": {
+      "type": "boolean",
+      "default": false
+    },
+    "paper_execution_status": {
+      "type": "string",
+      "enum": [
+        "NOT_STARTED",
+        "COMPLETED",
+        "FAILED",
+        "BLOCKED"
+      ],
+      "default": "BLOCKED"
+    },
+    "dex_execution_mode": {
+      "type": "string",
+      "enum": [
+        "NOT_APPLICABLE",
+        "RESEARCH_ONLY"
+      ],
+      "default": "NOT_APPLICABLE"
+    },
     "net_profit_percent": {
       "type": "number"
     },
@@ -74,6 +176,7 @@
         "GOVERNANCE_PENDING",
         "APPROVED",
         "EXECUTED",
+        "PAPER_COMPLETED",
         "EXPIRED",
         "REJECTED"
       ],
