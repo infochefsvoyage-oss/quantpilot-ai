@@ -82,7 +82,7 @@ export default function Journal() {
   );
 }
 
-function JournalStat({ label, value, unit, color = "muted" }) {
+function JournalStat({ label, value, unit = "", color = "muted" }) {
   const colors = { muted: "text-foreground", profit: "text-profit", loss: "text-loss", primary: "text-primary" };
   return (
     <div className="rounded-lg border border-border bg-card p-4">
