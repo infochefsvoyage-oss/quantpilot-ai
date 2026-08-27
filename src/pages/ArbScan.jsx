@@ -224,21 +224,34 @@ export default function ArbScan() {
           <FeedHealthCard
             label="HTTP 500"
             description="Top-Gainer / Loser"
-            failed={DATA_HEALTH.http500}
+            failed={feedHealth.http500}
           />
 
           <FeedHealthCard
             label="HTTP 502"
             description="Broker / MT5 / Upstream"
-            failed={DATA_HEALTH.http502}
+            failed={feedHealth.http502}
           />
 
           <FeedHealthCard
             label="HTTP 403"
             description="Trend / Perp Feeds"
-            failed={DATA_HEALTH.http403}
+            failed={feedHealth.http403}
           />
         </div>
+      </PanelCard>
+
+      {/* Measurement Pipeline */}
+      <PanelCard title="V1.2 Measurement Pipeline" className="mt-4">
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-5 lg:grid-cols-9">
+          {pipeline.map((stage) => (
+            <div key={stage.name} className="rounded-lg border border-border bg-secondary/30 p-3">
+              <div className="text-[10px] font-semibold text-muted-foreground">{stage.name}</div>
+              <div className="mt-2"><StatusBadge status={stage.status} color={stage.status === "PASS" ? "profit" : stage.status === "BLOCKED" ? "loss" : "warning"} /></div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">Fail-closed: ungeprüfte Health-, Freshness-, Clock-Sync- oder Cost-Daten werden nicht als statistisch belastbare Execution gewertet.</p>
       </PanelCard>
 
       {/* Exchange Status */}
@@ -912,10 +925,44 @@ function isActuallyEligibleForProfitDisplay(opp) {
   );
 }
 
+function buildMeasurementPipeline(opportunities) {
+  return [
+    { name: "RAW OPPORTUNITY", status: opportunities.length > 0 ? "PASS" : "BLOCKED" },
+    { name: "DATA HEALTH", status: opportunities.length > 0 && opportunities.every(o => o.data_health !== "FAILED") ? "PASS" : "DEGRADED" },
+    { name: "FRESHNESS / LATENCY", status: opportunities.length > 0 && opportunities.every(o => o.freshness_valid !== false) ? "PASS" : "BLOCKED" },
+    { name: "CLOCK-SYNC", status: opportunities.length > 0 && opportunities.every(o => o.clock_sync_valid !== false) ? "PASS" : "BLOCKED" },
+    { name: "ORDERBOOK SLIPPAGE", status: opportunities.length > 0 && opportunities.every(o => o.orderbook_slippage_valid !== false) ? "PASS" : "BLOCKED" },
+    { name: "TRADING FEES", status: opportunities.length > 0 ? "PASS" : "BLOCKED" },
+    { name: "ADVERSE / INVENTORY", status: opportunities.length > 0 && opportunities.every(o => o.adverse_selection_gate === "PASS" && o.inventory_gate === "PASS") ? "PASS" : "BLOCKED" },
+    { name: "NET-PROFIT", status: opportunities.some(isActuallyEligibleForProfitDisplay) ? "PASS" : "BLOCKED" },
+    { name: "MASTER RISK / PAPER", status: "BLOCKED" },
+  ];
+}
+
+function summarizeFeedHealth(opportunities) {
+  return {
+    http500: opportunities.some(o => o.feed_health === "HTTP_500" || o.http_status === 500) || DATA_HEALTH.http500,
+    http502: opportunities.some(o => o.feed_health === "HTTP_502" || o.http_status === 502) || DATA_HEALTH.http502,
+    http403: opportunities.some(o => o.feed_health === "HTTP_403" || o.http_status === 403) || DATA_HEALTH.http403,
+  };
+}
+
+function isGenuineOpportunity(opp) {
+  return !!opp && opp.source_type === "LIVE_CEX" && opp.status !== "MOCK";
+}
+
 function calculateCaptureRate(opportunities) {
   const valid = opportunities.filter(
     (opp) =>
+      isGenuineOpportunity(opp) &&
       isCompletedOpportunity(opp) &&
+      opp.capture_eligible === true &&
+      opp.data_health === "HEALTHY" &&
+      opp.freshness_valid === true &&
+      opp.clock_sync_valid === true &&
+      opp.orderbook_slippage_valid === true &&
+      opp.adverse_selection_gate === "PASS" &&
+      opp.inventory_gate === "PASS" &&
       safeNumber(opp.theoretical_net_profit) !== null &&
       safeNumber(opp.realized_net_profit) !== null
   );
