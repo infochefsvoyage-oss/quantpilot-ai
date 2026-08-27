@@ -1,6 +1,7 @@
 import React from "react";
 
-export default function StatusBadge({ status, color = "muted", className = "" }) {
+/** @param {{status?: any, color?: string, className?: string}} props */
+export default function StatusBadge({ status = "—", color = "muted", className = "" }) {
   const colors = {
     profit: "bg-profit/10 text-profit border-profit/30",
     loss: "bg-loss/10 text-loss border-loss/30",
