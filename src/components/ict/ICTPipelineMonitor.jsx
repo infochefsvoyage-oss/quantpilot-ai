@@ -22,8 +22,8 @@ function fmtPrice(v) {
   return v.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-/** @param {{label: any, value: any, tone?: string, hint?: string}} props */
-const Metric = memo(function Metric({ label, value, tone = "default", hint }) {
+/** @type {import('react').NamedExoticComponent<{label: any, value: any, tone?: string, hint?: string}>} */
+const Metric = memo(function Metric({ label, value, tone = "default", hint = "" }) {
   const toneClass = { default: "text-foreground", fresh: "text-profit", stale: "text-loss", warn: "text-warning", cyan: "text-primary" }[tone];
   return (
     <div className="rounded-md border border-border bg-secondary/40 px-3 py-2">
@@ -34,7 +34,7 @@ const Metric = memo(function Metric({ label, value, tone = "default", hint }) {
   );
 });
 
-/** @param {{label: string, passed: boolean}} props */
+/** @type {import('react').NamedExoticComponent<{label: string, passed: boolean}>} */
 const GateRow = memo(function GateRow({ label, passed }) {
   return (
     <div className="flex items-center justify-between rounded-md border border-border bg-secondary/30 px-3 py-1.5">
@@ -44,7 +44,7 @@ const GateRow = memo(function GateRow({ label, passed }) {
   );
 });
 
-/** @param {{label: string, state: string}} props */
+/** @type {import('react').NamedExoticComponent<{label: string, state: string}>} */
 const SafetyGate = memo(function SafetyGate({ label, state }) {
   const isBlocked = state === "BLOCKED" || state === "OFF";
   const isAllowed = state === "ALLOWED" || state === "TRUE" || state === "ENABLED";
@@ -56,7 +56,7 @@ const SafetyGate = memo(function SafetyGate({ label, state }) {
   );
 });
 
-/** @param {{verdict: string}} props */
+/** @type {import('react').NamedExoticComponent<{verdict: string}>} */
 const VerdictBadge = memo(function VerdictBadge({ verdict }) {
   const config = {
     PERFORMANCE_PASS: { color: "profit", label: "PERFORMANCE_PASS" },
@@ -164,7 +164,7 @@ export default function ICTPipelineMonitor() {
       const shortSignal = generatePaperSignal(shortAnalysis, { bid: data.bid });
       return { longAnalysis, shortAnalysis, longSignal, shortSignal, session };
     } catch (e) {
-      return { engine_error: true };
+      return { engine_error: true, longAnalysis: null, shortAnalysis: null, longSignal: null, shortSignal: null, session: null };
     }
   }, [data]);
 
@@ -390,7 +390,7 @@ export default function ICTPipelineMonitor() {
   );
 }
 
-/** @param {{label: string, analysis: any, signal: any}} props */
+/** @type {import('react').NamedExoticComponent<{label: string, analysis: any, signal: any}>} */
 const ICTSideResult = memo(function ICTSideResult({ label, analysis, signal }) {
   if (!analysis || !analysis.components) {
     return (
