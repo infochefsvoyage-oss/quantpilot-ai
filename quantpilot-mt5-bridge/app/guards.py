@@ -47,10 +47,10 @@ def record_heartbeat(payload: Optional[dict] = None) -> None:
     # Infer failures from gap (only if we have a previous POST to compare)
     if _last_post_at is not None:
         gap = now - _last_post_at
-        gap_threshold = 2 * settings.heartbeat_healthy_seconds  # 20s with 10s healthy
+        expected_interval = settings.heartbeat_interval_seconds
+        gap_threshold = 2 * expected_interval
         if gap > gap_threshold:
-            # Conservative: at least 1 missed POST, more if gap is large
-            expected_interval = settings.heartbeat_healthy_seconds
+            # Infer the number of missed EA heartbeat intervals.
             missed = max(1, int(gap / expected_interval) - 1)
             _post_failures += missed
             _consecutive_failures = missed
