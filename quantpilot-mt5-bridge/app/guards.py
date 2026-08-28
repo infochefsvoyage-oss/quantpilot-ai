@@ -35,9 +35,9 @@ def record_heartbeat(payload: Optional[dict] = None) -> None:
     """Record a successful POST and infer failures from the gap since last POST.
 
     The EA posts every HeartbeatIntervalSec (5s). If the gap between two
-    successful POSTs exceeds 2× heartbeat_healthy_seconds (20s), POSTs were
-    lost — most likely a proxy 502 (threadpool exhaustion, backend restart,
-    network drop). We infer the missed count and timestamp conservatively.
+    successful POSTs exceeds 2× heartbeat_interval_seconds (10s), POSTs were
+    lost — most likely a proxy 502, backend restart, or network drop. We infer
+    the missed count and timestamp conservatively.
     """
     global _last_heartbeat, _last_heartbeat_payload, _post_success, _post_failures
     global _last_success_at, _last_failure_at, _consecutive_failures, _last_post_at
