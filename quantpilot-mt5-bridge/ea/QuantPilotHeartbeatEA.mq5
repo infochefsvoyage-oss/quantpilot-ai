@@ -35,7 +35,7 @@ datetime g_lastPost = 0;
 string  g_lastError = "";
 int     g_postCount = 0;
 int     g_retrySuccessCount = 0;  // nach Retry erfolgreich wiederhergestellte Heartbeats
-int     g_transientFailureCount = 0; // retrybare Fehler
+int     g_transientFailureCount = 0; // Heartbeats mit mindestens einem retrybaren Fehler
 int     g_finalFailureCount = 0;     // trotz Retries verlorene Heartbeats
 
 //+------------------------------------------------------------------+
@@ -171,6 +171,7 @@ void PostHeartbeat()
 
    string url = BridgeUrl;
    bool success = false;
+   bool heartbeatHadRetryableFailure = false;
    uint startTimeMs = GetTickCount();
 
    for(int attempt = 1; attempt <= MaxRetries; attempt++)
@@ -185,6 +186,8 @@ void PostHeartbeat()
       {
          success = true;
          g_postCount++;
+         if(heartbeatHadRetryableFailure)
+            g_transientFailureCount++;
          g_lastError = "";
          if(attempt > 1)
          {
@@ -206,7 +209,7 @@ void PostHeartbeat()
       string reason = ClassifyError(res, errCode);
       bool retryable = IsRetryableError(res, errCode);
       if(retryable)
-         g_transientFailureCount++;
+         heartbeatHadRetryableFailure = true;
 
       // Auth-Fehler (401/403) — explizit loggen, kein Retry
       if(res == 401 || res == 403)
@@ -229,8 +232,15 @@ void PostHeartbeat()
          uint elapsedMs = GetTickCount() - startTimeMs;
          g_finalFailureCount++;
          g_lastError = "http=" + IntegerToString(res) + " err=" + IntegerToString(errCode) + " reason=" + reason;
-         Print("[QuantPilot-Heartbeat] POST FAILED http=", res, " attempts=", attempt, "/", MaxRetries,
+         string responseHeaders = resultHeaders;
+         string responseBody = CharArrayToString(result);
+         if(StringLen(responseBody) > 200)
+            responseBody = StringSubstr(responseBody, 0, 200);
+         Print("[QuantPilot-Heartbeat] POST FAILED http=", res,
+               " attempts=", attempt, "/", MaxRetries,
                " elapsed_ms=", elapsedMs, " reason=", reason);
+         Print("[QuantPilot-Heartbeat] RESPONSE HEADERS: ", responseHeaders);
+         Print("[QuantPilot-Heartbeat] RESPONSE BODY PREVIEW: ", responseBody);
          break;
       }
 
@@ -251,7 +261,7 @@ void PostHeartbeat()
    {
       Print("[QuantPilot-Heartbeat] TELEMETRY posts=", g_postCount,
             " retry_recoveries=", g_retrySuccessCount,
-            " transient_failures=", g_transientFailureCount,
+            " transient_events=", g_transientFailureCount,
             " final_failures=", g_finalFailureCount);
    }
 }
