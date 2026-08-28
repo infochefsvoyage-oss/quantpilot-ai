@@ -35,6 +35,8 @@ datetime g_lastPost = 0;
 string  g_lastError = "";
 int     g_postCount = 0;
 int     g_retrySuccessCount = 0;  // nach Retry erfolgreich wiederhergestellte Heartbeats
+int     g_transientFailureCount = 0; // retrybare Fehler
+int     g_finalFailureCount = 0;     // trotz Retries verlorene Heartbeats
 
 //+------------------------------------------------------------------+
 //| Expert initialization                                             |
@@ -73,7 +75,10 @@ int OnInit()
 void OnDeinit(const int reason)
 {
    Print("[QuantPilot-Heartbeat] EA gestoppt — reason=", reason,
-         " Posts=", g_postCount);
+         " Posts=", g_postCount,
+         " RetryRecoveries=", g_retrySuccessCount,
+         " TransientFailures=", g_transientFailureCount,
+         " FinalFailures=", g_finalFailureCount);
 }
 
 //+------------------------------------------------------------------+
@@ -200,6 +205,8 @@ void PostHeartbeat()
 
       string reason = ClassifyError(res, errCode);
       bool retryable = IsRetryableError(res, errCode);
+      if(retryable)
+         g_transientFailureCount++;
 
       // Auth-Fehler (401/403) — explizit loggen, kein Retry
       if(res == 401 || res == 403)
@@ -220,6 +227,7 @@ void PostHeartbeat()
       if(attempt >= MaxRetries)
       {
          uint elapsedMs = GetTickCount() - startTimeMs;
+         g_finalFailureCount++;
          g_lastError = "http=" + IntegerToString(res) + " err=" + IntegerToString(errCode) + " reason=" + reason;
          Print("[QuantPilot-Heartbeat] POST FAILED http=", res, " attempts=", attempt, "/", MaxRetries,
                " elapsed_ms=", elapsedMs, " reason=", reason);
@@ -237,10 +245,19 @@ void PostHeartbeat()
             " http=", res, " delay_ms=", delayMs, " reason=", reason);
       Sleep(delayMs);
    }
-   }
 
-   //+------------------------------------------------------------------+
-   //| Fehler klassifizieren — HTTP-Code + MQL5 GetLastError()           |
+   if((g_postCount + g_finalFailureCount) > 0 &&
+      (g_postCount + g_finalFailureCount) % 100 == 0)
+   {
+      Print("[QuantPilot-Heartbeat] TELEMETRY posts=", g_postCount,
+            " retry_recoveries=", g_retrySuccessCount,
+            " transient_failures=", g_transientFailureCount,
+            " final_failures=", g_finalFailureCount);
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Fehler klassifizieren — HTTP-Code + MQL5 GetLastError()           |
    //+------------------------------------------------------------------+
    string ClassifyError(int httpCode, int errCode)
    {
