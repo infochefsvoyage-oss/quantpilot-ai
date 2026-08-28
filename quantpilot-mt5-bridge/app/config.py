@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     # Heartbeat thresholds
     heartbeat_healthy_seconds: int = 10
     heartbeat_stale_seconds: int = 30
+    # Heartbeat interval used by the EA
+    heartbeat_interval_seconds: int = 5
 
     # Verification expectations
     expected_broker_company: str = "Vantage"
