@@ -1,5 +1,6 @@
 """QuantPilot MT5 Bridge – E2E Probe (14 checks).
-Run on the MT5/Vantage machine:  python e2e_probe.py
+Run on the MT5/Vantage machine:
+    python .\\e2e_probe.py
 Only ALL required PASS -> VERDICT: MT5_E2E_CONNECTED. Else MT5_E2E_NOT_VERIFIED.
 NO live order is sent at any point (order_check only, never order_send).
 
