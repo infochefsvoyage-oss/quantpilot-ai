@@ -23,6 +23,7 @@ import ForwardObservationPanel from "@/components/ict/ForwardObservationPanel";
 import ProfitabilityMonitor from "@/components/ict/ProfitabilityMonitor";
 import GoLiveGateTracker from "@/components/ict/GoLiveGateTracker";
 import Go3MT5E2EAudit from "@/components/ict/Go3MT5E2EAudit";
+import ArbMeasurementProgress from "@/components/arb/ArbMeasurementProgress";
 
 export default function Dashboard() {
   const topSignal = sampleSignals[0];
@@ -252,6 +253,11 @@ export default function Dashboard() {
       {/* GO-3 MT5 E2E Hardening Audit — 14/14 Test Matrix */}
       <div className="mt-4">
         <Go3MT5E2EAudit />
+      </div>
+
+      {/* ARB V1.2 — Genuine Opportunity Evidence Gate */}
+      <div className="mt-4">
+        <ArbMeasurementProgress />
       </div>
 
       {/* QuantPilot Profitability Monitor — Controlled Auto-Order Readiness */}
