@@ -138,6 +138,45 @@ function detectSetup(k1: any[], bias: string) {
   };
 }
 
+function deriveICT(k1: any[], side: string, entry: number) {
+  const closed = k1.slice(0, -1);
+  const c = closed.at(-1);
+  const p1 = closed.at(-2);
+  const p2 = closed.at(-3);
+  const prior = closed.slice(-12, -2);
+  if (!c || !p1 || !p2 || prior.length < 5) {
+    return { displacement: false, mss_bos: "NONE", fvg_detected: false, order_block_detected: false, premium_discount: "EQUILIBRIUM" };
+  }
+  const avgBody = prior.reduce((s, x) => s + Math.abs(x.close - x.open), 0) / prior.length;
+  const body = Math.abs(c.close - c.open);
+  const directional = side === "LONG" ? c.close > c.open : c.close < c.open;
+  const displacement = avgBody > 0 && body >= avgBody * 1.5 && directional;
+  const priorHigh = Math.max(...prior.map((x) => x.high));
+  const priorLow = Math.min(...prior.map((x) => x.low));
+  const mss = side === "LONG" ? c.close > priorHigh : c.close < priorLow;
+  const bullishFvg = p2.high < c.low;
+  const bearishFvg = p2.low > c.high;
+  const fvgDetected = side === "LONG" ? bullishFvg : bearishFvg;
+  const recent = closed.slice(-40);
+  const rangeHigh = Math.max(...recent.map((x) => x.high));
+  const rangeLow = Math.min(...recent.map((x) => x.low));
+  const midpoint = (rangeHigh + rangeLow) / 2;
+  const premiumDiscount = entry < midpoint ? "DISCOUNT" : entry > midpoint ? "PREMIUM" : "EQUILIBRIUM";
+  return {
+    displacement,
+    displacement_candles: displacement ? 1 : 0,
+    mss_bos: mss ? "MSS" : "NONE",
+    mss_direction: mss ? (side === "LONG" ? "BULLISH" : "BEARISH") : "NEUTRAL",
+    fvg_detected: fvgDetected,
+    fvg_top: fvgDetected ? Math.max(p2.high, c.low) : null,
+    fvg_bottom: fvgDetected ? Math.min(p2.high, c.low) : null,
+    order_block_detected: false,
+    ob_high: null,
+    ob_low: null,
+    premium_discount: premiumDiscount,
+  };
+}
+
 function levels(k1: any[], side: string, entry: number) {
   const closed = k1.slice(0, -1);
   const recent = closed.slice(-20);
@@ -202,6 +241,7 @@ export async function scanLiveSniperSymbol(exchange: string, symbol: string) {
   const dataFresh = dataAgeMs >= 0 && dataAgeMs <= FRESH_MS;
   const spreadOk = spreadPct <= 0.08;
   const lv = levels(k1, setup.side, entry);
+  const ict = deriveICT(k1, setup.side, entry);
 
   const gateCount = [setup.liquidity_sweep, setup.reclaim_rejection, setup.volume_confirmation, setup.htf_alignment].filter(Boolean).length;
   const score = gateCount * 25;
@@ -239,6 +279,7 @@ export async function scanLiveSniperSymbol(exchange: string, symbol: string) {
     latency_ms: Math.max(r1.latency_ms || 0, r15.latency_ms || 0, r4.latency_ms || 0, book.latency_ms || 0),
     created_date: new Date().toISOString(),
     notes: all4 ? "Alle 4 A+ Gates auf Live-Candles bestätigt" : `${gateCount}/4 A+ Gates bestätigt`,
+    ict,
   };
 }
 
