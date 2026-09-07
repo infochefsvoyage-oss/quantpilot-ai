@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   TrendingUp, TrendingDown, Crosshair, ShieldAlert, Lock,
@@ -9,6 +9,7 @@ import {
   openTrades, closedTradesToday, pendingGovernance, ulfWarnings, decisionConfig, formatPnl,
 } from "@/lib/quantData";
 import PanelCard from "@/components/PanelCard";
+import { base44 } from "@/api/base44Client";
 import StatusBadge from "@/components/StatusBadge";
 import GateIndicator from "@/components/GateIndicator";
 import ICTPipelineMonitor from "@/components/ict/ICTPipelineMonitor";
@@ -25,6 +26,27 @@ import GoLiveGateTracker from "@/components/ict/GoLiveGateTracker";
 import Go3MT5E2EAudit from "@/components/ict/Go3MT5E2EAudit";
 import ArbMeasurementProgress from "@/components/arb/ArbMeasurementProgress";
 
+function DashboardExchangePrices({ name, data }) {
+  const tickers = Array.isArray(data?.tickers) ? data.tickers : [];
+  return (
+    <div className="rounded-md border border-border bg-secondary/30 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm font-semibold text-foreground">{name}</span>
+        <StatusBadge status={data?.reachable ? "LIVE" : "OFFLINE"} color={data?.reachable ? "profit" : "loss"} />
+      </div>
+      {tickers.length ? tickers.map((t) => (
+        <div key={t.symbol} className="flex items-center justify-between border-t border-border/50 py-2 first:border-0">
+          <span className="font-mono text-xs font-semibold">{t.symbol}</span>
+          <div className="text-right">
+            <div className="font-mono text-sm font-semibold">${Number(t.last_price).toLocaleString("de-DE", { maximumFractionDigits: 5 })}</div>
+            <div className={`font-mono text-xs ${t.price_change_pct >= 0 ? "text-profit" : "text-loss"}`}>{t.price_change_pct >= 0 ? "+" : ""}{Number(t.price_change_pct).toFixed(2)}%</div>
+          </div>
+        </div>
+      )) : <div className="py-3 text-xs text-muted-foreground">Keine bestätigten Live-Kursdaten</div>}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const topSignal = sampleSignals[0];
   const dailyPnlPositive = portfolioSummary.daily_pnl >= 0;
@@ -33,6 +55,20 @@ export default function Dashboard() {
   const unrealizedPnl = openTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
   const totalPnl = realizedPnl + unrealizedPnl;
   const totalPnlPositive = totalPnl >= 0;
+  const [exchangeLive, setExchangeLive] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const resp = await base44.functions.invoke("fetchExchangeData", {});
+        if (mounted) setExchangeLive(resp.data || resp);
+      } catch (_) {}
+    };
+    load();
+    const id = setInterval(load, 30000);
+    return () => { mounted = false; clearInterval(id); };
+  }, []);
 
   return (
     <div className="min-h-full p-6">
@@ -74,6 +110,16 @@ export default function Dashboard() {
           sub={`Limit ${riskDefaults.max_drawdown_pause}%`}
           color={portfolioSummary.max_drawdown > riskDefaults.max_drawdown_pause * 0.7 ? "warning" : "primary"}
         />
+      </div>
+
+      {/* Echte Exchange-Kursdaten */}
+      <div className="mt-4">
+        <PanelCard title="Live Kurse · Binance / MEXC" action={<span className="font-mono text-xs text-muted-foreground">REST · 30s Refresh</span>}>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <DashboardExchangePrices name="Binance" data={exchangeLive?.binance} />
+            <DashboardExchangePrices name="MEXC" data={exchangeLive?.mexc} />
+          </div>
+        </PanelCard>
       </div>
 
       {/* PnL Übersicht */}
