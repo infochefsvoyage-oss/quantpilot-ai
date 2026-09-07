@@ -115,6 +115,15 @@ export default function ExchangeSetup() {
         )}
       </PanelCard>
 
+      {/* API Health — echte Public-/Auth-Pfade getrennt */}
+      <PanelCard title="Exchanges+ API Health" className="mb-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <ExchangeHealthCard name="Binance" data={liveData?.binance} apiKeyId={binance.api_key_id} lastSync={liveData?.timestamp || lastUpdate?.toISOString()} />
+          <ExchangeHealthCard name="MEXC" data={liveData?.mexc} apiKeyId={mexc.api_key_id} lastSync={liveData?.timestamp || lastUpdate?.toISOString()} />
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">Public REST und Auth Account werden separat validiert. Auth-Checks sind READ ONLY; sie senden keine Orders und ändern keine Governance-Freigabe.</p>
+      </PanelCard>
+
       {/* Security Warning */}
       <div className="mb-4 flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 glow-amber">
         <Lock className="h-5 w-5 text-warning shrink-0 mt-0.5" />
@@ -323,6 +332,36 @@ function ExchangeTickerCard({ name, data }) {
       ) : reachable ? (
         <div className="py-4 text-center text-xs text-muted-foreground">Keine Ticker-Daten verfügbar</div>
       ) : null}
+    </div>
+  );
+}
+
+function ExchangeHealthCard({ name, data, apiKeyId, lastSync }) {
+  const authPass = data?.auth_api === "PASS";
+  const authConfigured = data?.api_key_configured === true;
+  const healthRows = [
+    ["REST API", data?.rest_api || (data?.reachable ? "PASS" : "FAIL")],
+    ["Auth API", data?.auth_api || "UNKNOWN"],
+    ["Last Sync", lastSync ? new Date(lastSync).toLocaleString("de-DE") : "—"],
+    ["Latency", data?.latency_ms != null ? `${data.latency_ms} ms` : "—"],
+    ["Rate Limit", data?.rate_limit_status || "—"],
+    ["Ticker Freshness", data?.ticker_freshness || "—"],
+    ["API Key configured", authConfigured ? (apiKeyId || "JA") : "NEIN"],
+  ];
+  return (
+    <div className="rounded-lg border border-border bg-secondary/20 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="font-heading text-sm font-bold text-foreground">{name}</span>
+        <StatusBadge status={authPass ? "AUTH PASS" : authConfigured ? "AUTH FAIL" : "PUBLIC ONLY"} color={authPass ? "profit" : authConfigured ? "loss" : "warning"} />
+      </div>
+      <div className="space-y-2">
+        {healthRows.map(([label, value]) => (
+          <div key={label} className="flex items-center justify-between border-b border-border/50 pb-1.5 text-xs last:border-0">
+            <span className="text-muted-foreground">{label}</span>
+            <span className="font-mono text-foreground">{value}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
