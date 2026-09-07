@@ -5,7 +5,7 @@ import {
   AlertTriangle, Gauge, Layers,
 } from "lucide-react";
 import {
-  runtimeStatus, riskDefaults, portfolioSummary, sampleSignals,
+  runtimeStatus, riskDefaults, portfolioSummary,
   openTrades, closedTradesToday, pendingGovernance, ulfWarnings, decisionConfig, formatPnl,
 } from "@/lib/quantData";
 import PanelCard from "@/components/PanelCard";
@@ -53,7 +53,9 @@ function DashboardExchangePrices({ name, data, loading, callError }) {
 }
 
 export default function Dashboard() {
-  const topSignal = sampleSignals[0];
+  const [liveSignals, setLiveSignals] = useState([]);
+  const [signalStatus, setSignalStatus] = useState("LOADING");
+  const topSignal = liveSignals.find((s) => s.decision === "ENTER") || liveSignals[0] || null;
   const dailyPnlPositive = portfolioSummary.daily_pnl >= 0;
   const weeklyPnlPositive = portfolioSummary.weekly_pnl >= 0;
   const realizedPnl = closedTradesToday.reduce((sum, t) => sum + (t.pnl || 0), 0);
@@ -80,9 +82,23 @@ export default function Dashboard() {
         if (mounted) setExchangeLoading(false);
       }
     };
+    const loadSignals = async () => {
+      try {
+        const resp = await base44.functions.invoke("fetchSniperSignals", {});
+        const data = resp.data || resp;
+        if (mounted) {
+          setLiveSignals(Array.isArray(data.signals) ? data.signals : []);
+          setSignalStatus(data.status || "LIVE");
+        }
+      } catch {
+        if (mounted) { setLiveSignals([]); setSignalStatus("OFFLINE"); }
+      }
+    };
     load();
+    loadSignals();
     const id = setInterval(load, 30000);
-    return () => { mounted = false; clearInterval(id); };
+    const signalId = setInterval(loadSignals, 30000);
+    return () => { mounted = false; clearInterval(id); clearInterval(signalId); };
   }, []);
 
   return (
@@ -263,28 +279,12 @@ export default function Dashboard() {
 
       {/* A+ Gate Status + Letzte Signale */}
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <PanelCard title="A+ Gate Status – Top Signal">
-          <div className="space-y-2">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-sm font-bold text-foreground">{topSignal.symbol}</span>
-                <StatusBadge status={topSignal.exchange} color="muted" />
-              </div>
-              <StatusBadge
-                status={decisionConfig[topSignal.decision].label}
-                color={decisionConfig[topSignal.decision].color}
-              />
-            </div>
-            <GateIndicator label="Liquidity Sweep" passed={topSignal.gate_liquidity_sweep} />
-            <GateIndicator label="Reclaim / Rejection" passed={topSignal.gate_reclaim_rejection} />
-            <GateIndicator label="Volume Confirmation" passed={topSignal.gate_volume_confirmation} />
-            <GateIndicator label="HTF Alignment" passed={topSignal.gate_htf_alignment} />
-            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-border pt-3">
-              <Metric label="ASCAN Score" value={topSignal.ascan_score} good={topSignal.ascan_score >= 75} />
-              <Metric label="RR" value={topSignal.rr.toFixed(1)} good={topSignal.rr >= 2.5} />
-              <Metric label="HTF Bias" value={topSignal.htf_bias} good={topSignal.htf_bias !== "NEUTRAL"} />
-            </div>
-          </div>
+        <PanelCard title="A+ Gate Status – Live Top Signal" action={<StatusBadge status={signalStatus} color={signalStatus === "LIVE" ? "profit" : signalStatus === "LOADING" ? "warning" : "loss"} />}>
+          {topSignal ? <div className="space-y-2">
+            <div className="mb-3 flex items-center justify-between"><div className="flex items-center gap-2"><span className="font-mono text-sm font-bold text-foreground">{topSignal.symbol}</span><StatusBadge status={topSignal.exchange} color="muted" /></div><StatusBadge status={decisionConfig[topSignal.decision]?.label || topSignal.decision} color={decisionConfig[topSignal.decision]?.color || "loss"} /></div>
+            <GateIndicator label="Liquidity Sweep" passed={topSignal.gate_liquidity_sweep} /><GateIndicator label="Reclaim / Rejection" passed={topSignal.gate_reclaim_rejection} /><GateIndicator label="Volume Confirmation" passed={topSignal.gate_volume_confirmation} /><GateIndicator label="HTF Alignment" passed={topSignal.gate_htf_alignment} />
+            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-border pt-3"><Metric label="ASCAN Score" value={topSignal.ascan_score} good={topSignal.ascan_score >= 75} /><Metric label="RR" value={Number(topSignal.rr || 0).toFixed(1)} good={topSignal.rr >= 2.5} /><Metric label="HTF Bias" value={topSignal.htf_bias} good={topSignal.htf_bias !== "NEUTRAL"} /></div>
+          </div> : <div className="rounded border border-loss/20 bg-loss/5 p-4 text-sm text-loss">NO DATA / NO TRADE — kein bestätigtes Live-Signal verfügbar.</div>}
         </PanelCard>
 
         <PanelCard
@@ -296,7 +296,7 @@ export default function Dashboard() {
           }
         >
           <div className="space-y-2">
-            {sampleSignals.map((s) => {
+            {liveSignals.length ? liveSignals.map((s) => {
               const dc = decisionConfig[s.decision];
               return (
                 <div key={s.id} className="flex items-center justify-between rounded-md border border-border bg-secondary/30 px-3 py-2.5">
@@ -315,7 +315,7 @@ export default function Dashboard() {
                   </div>
                 </div>
               );
-            })}
+            }) : <div className="rounded border border-loss/20 bg-loss/5 p-3 text-xs text-loss">NO DATA / NO TRADE — Live-Scanner nicht verfügbar.</div>}
           </div>
         </PanelCard>
       </div>
