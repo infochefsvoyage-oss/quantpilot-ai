@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import {
   runtimeStatus, riskDefaults, portfolioSummary, sampleSignals,
-  openTrades, pendingGovernance, ulfWarnings, decisionConfig, formatPnl,
+  openTrades, closedTradesToday, pendingGovernance, ulfWarnings, decisionConfig, formatPnl,
 } from "@/lib/quantData";
 import PanelCard from "@/components/PanelCard";
 import StatusBadge from "@/components/StatusBadge";
@@ -29,6 +29,10 @@ export default function Dashboard() {
   const topSignal = sampleSignals[0];
   const dailyPnlPositive = portfolioSummary.daily_pnl >= 0;
   const weeklyPnlPositive = portfolioSummary.weekly_pnl >= 0;
+  const realizedPnl = closedTradesToday.reduce((sum, t) => sum + (t.pnl || 0), 0);
+  const unrealizedPnl = openTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+  const totalPnl = realizedPnl + unrealizedPnl;
+  const totalPnlPositive = totalPnl >= 0;
 
   return (
     <div className="min-h-full p-6">
@@ -70,6 +74,86 @@ export default function Dashboard() {
           sub={`Limit ${riskDefaults.max_drawdown_pause}%`}
           color={portfolioSummary.max_drawdown > riskDefaults.max_drawdown_pause * 0.7 ? "warning" : "primary"}
         />
+      </div>
+
+      {/* PnL Übersicht */}
+      <div className="mt-4">
+        <PanelCard title="PnL Übersicht">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <PnlMetric
+              label="Tages-PnL"
+              value={formatPnl(portfolioSummary.daily_pnl)}
+              sub={`${formatPnl(portfolioSummary.daily_pnl_percent)}%`}
+              positive={dailyPnlPositive}
+            />
+            <PnlMetric
+              label="Wochen-PnL"
+              value={formatPnl(portfolioSummary.weekly_pnl)}
+              sub={`${formatPnl(portfolioSummary.weekly_pnl_percent)}%`}
+              positive={weeklyPnlPositive}
+            />
+            <PnlMetric
+              label="Realisiert (heute)"
+              value={formatPnl(realizedPnl)}
+              sub={`${closedTradesToday.length} Trades geschlossen`}
+              positive={realizedPnl >= 0}
+            />
+            <PnlMetric
+              label="Unrealisiert (offen)"
+              value={formatPnl(unrealizedPnl)}
+              sub={`${openTrades.length} Position(en) offen`}
+              positive={unrealizedPnl >= 0}
+            />
+          </div>
+
+          {/* Geschlossene Trades heute */}
+          <div className="mt-4">
+            <div className="mb-2 flex items-center justify-between">
+              <h4 className="text-xs font-semibold text-muted-foreground">Geschlossene Trades heute</h4>
+              <span className={`font-mono text-sm font-bold ${totalPnlPositive ? "text-profit" : "text-loss"}`}>
+                Σ {formatPnl(totalPnl)}
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-xs text-muted-foreground">
+                    <th className="pb-2 text-left font-medium">Symbol</th>
+                    <th className="pb-2 text-left font-medium">Seite</th>
+                    <th className="pb-2 text-center font-medium">Status</th>
+                    <th className="pb-2 text-right font-medium">PnL</th>
+                    <th className="pb-2 text-right font-medium">PnL %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {closedTradesToday.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-4 text-center text-xs text-muted-foreground">Keine geschlossenen Trades heute</td>
+                    </tr>
+                  ) : (
+                    closedTradesToday.map((t) => (
+                      <tr key={t.id} className="border-b border-border/50">
+                        <td className="py-2.5 font-mono font-semibold">{t.symbol}</td>
+                        <td className="py-2.5">
+                          <span className={t.side === "LONG" ? "text-profit" : "text-loss"}>{t.side}</span>
+                        </td>
+                        <td className="py-2.5 text-center">
+                          <StatusBadge status={t.status} color={t.status === "CLOSED" ? "profit" : "loss"} />
+                        </td>
+                        <td className={`py-2.5 text-right font-mono font-semibold ${t.pnl >= 0 ? "text-profit" : "text-loss"}`}>
+                          {formatPnl(t.pnl)}
+                        </td>
+                        <td className={`py-2.5 text-right font-mono ${t.pnl >= 0 ? "text-profit" : "text-loss"}`}>
+                          {formatPnl(t.pnl_percent)}%
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </PanelCard>
       </div>
 
       {/* Runtime Status + Governance Pending */}
@@ -353,6 +437,16 @@ function Metric({ label, value, good }) {
     <div className="text-center">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className={`mt-1 font-mono text-sm font-bold ${good ? "text-profit" : "text-loss"}`}>{value}</div>
+    </div>
+  );
+}
+
+function PnlMetric({ label, value, sub, positive }) {
+  return (
+    <div className={`rounded-md border p-3 ${positive ? "border-profit/20 bg-profit/5" : "border-loss/20 bg-loss/5"}`}>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={`mt-1.5 font-mono text-xl font-bold ${positive ? "text-profit" : "text-loss"}`}>{value}</div>
+      <div className="mt-0.5 font-mono text-xs text-muted-foreground">{sub}</div>
     </div>
   );
 }
