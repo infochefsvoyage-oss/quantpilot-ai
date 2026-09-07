@@ -2,8 +2,6 @@
 // No API key required for public ticker endpoints.
 // Returns: connection status, ticker prices (BTC, ETH, SOL), rate-limit health.
 
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
-
 const SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT"];
 
 const BINANCE_ENDPOINTS = [
@@ -77,10 +75,7 @@ async function fetchMexcTickers() {
 
 export default async function(req) {
   try {
-    const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
-
+    // Public market-data endpoint only: no account data, no secrets, no order capability.
     const [binance, mexc] = await Promise.all([fetchBinanceTickers(), fetchMexcTickers()]);
 
     // Rate-limit heuristic: if latency > 3000ms, flag as THROTTLED
