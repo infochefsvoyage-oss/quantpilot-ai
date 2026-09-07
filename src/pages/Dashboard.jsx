@@ -26,13 +26,15 @@ import GoLiveGateTracker from "@/components/ict/GoLiveGateTracker";
 import Go3MT5E2EAudit from "@/components/ict/Go3MT5E2EAudit";
 import ArbMeasurementProgress from "@/components/arb/ArbMeasurementProgress";
 
-function DashboardExchangePrices({ name, data }) {
+function DashboardExchangePrices({ name, data, loading, callError }) {
   const tickers = Array.isArray(data?.tickers) ? data.tickers : [];
+  const status = loading && !data ? "LOADING" : data?.reachable ? "LIVE" : callError ? "CALL ERROR" : "OFFLINE";
+  const statusColor = data?.reachable ? "profit" : loading && !data ? "warning" : "loss";
   return (
     <div className="rounded-md border border-border bg-secondary/30 p-3">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-sm font-semibold text-foreground">{name}</span>
-        <StatusBadge status={data?.reachable ? "LIVE" : "OFFLINE"} color={data?.reachable ? "profit" : "loss"} />
+        <StatusBadge status={status} color={statusColor} />
       </div>
       {tickers.length ? tickers.map((t) => (
         <div key={t.symbol} className="flex items-center justify-between border-t border-border/50 py-2 first:border-0">
@@ -42,7 +44,10 @@ function DashboardExchangePrices({ name, data }) {
             <div className={`font-mono text-xs ${t.price_change_pct >= 0 ? "text-profit" : "text-loss"}`}>{t.price_change_pct >= 0 ? "+" : ""}{Number(t.price_change_pct).toFixed(2)}%</div>
           </div>
         </div>
-      )) : <div className="py-3 text-xs text-muted-foreground">Keine bestätigten Live-Kursdaten</div>}
+      )) : <div className="py-3 text-xs text-muted-foreground">{loading ? "Live-Kurse werden geladen…" : "Keine bestätigten Live-Kursdaten"}</div>}
+      {!data?.reachable && (data?.error || callError) && (
+        <div className="mt-2 rounded border border-loss/20 bg-loss/5 px-2 py-1.5 font-mono text-[11px] text-loss">{data?.error || callError}</div>
+      )}
     </div>
   );
 }
@@ -56,14 +61,24 @@ export default function Dashboard() {
   const totalPnl = realizedPnl + unrealizedPnl;
   const totalPnlPositive = totalPnl >= 0;
   const [exchangeLive, setExchangeLive] = useState(null);
+  const [exchangeLoading, setExchangeLoading] = useState(true);
+  const [exchangeError, setExchangeError] = useState(null);
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
+      if (mounted) setExchangeLoading(true);
       try {
         const resp = await base44.functions.invoke("fetchExchangeData", {});
-        if (mounted) setExchangeLive(resp.data || resp);
-      } catch (_) {}
+        if (mounted) {
+          setExchangeLive(resp.data || resp);
+          setExchangeError(null);
+        }
+      } catch (e) {
+        if (mounted) setExchangeError(e?.message || "fetchExchangeData failed");
+      } finally {
+        if (mounted) setExchangeLoading(false);
+      }
     };
     load();
     const id = setInterval(load, 30000);
@@ -116,8 +131,8 @@ export default function Dashboard() {
       <div className="mt-4">
         <PanelCard title="Live Kurse · Binance / MEXC" action={<span className="font-mono text-xs text-muted-foreground">REST · 30s Refresh</span>}>
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <DashboardExchangePrices name="Binance" data={exchangeLive?.binance} />
-            <DashboardExchangePrices name="MEXC" data={exchangeLive?.mexc} />
+            <DashboardExchangePrices name="Binance" data={exchangeLive?.binance} loading={exchangeLoading} callError={exchangeError} />
+            <DashboardExchangePrices name="MEXC" data={exchangeLive?.mexc} loading={exchangeLoading} callError={exchangeError} />
           </div>
         </PanelCard>
       </div>
