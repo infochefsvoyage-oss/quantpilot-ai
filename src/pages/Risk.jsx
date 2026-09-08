@@ -19,6 +19,7 @@ export default function Risk() {
           Risiko
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">Risk Engine – Kapitalerhalt hat Vorrang (Capital Preservation First)</p>
+        <div className="mt-2 rounded border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">MIXED SOURCE — Risk Defaults sind Konfiguration; die angezeigten Portfolio-PnL/Drawdown-Werte sind derzeit Prototype-Snapshots, nicht Live-Konto-Telemetrie.</div>
       </div>
 
       {/* Loss Limits */}
