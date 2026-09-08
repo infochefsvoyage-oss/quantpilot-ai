@@ -23,9 +23,16 @@ import RunnerProtection from '@/pages/RunnerProtection';
 import ReverseShort from '@/pages/ReverseShort';
 import Agents from '@/pages/Agents';
 import ICTScanner from '@/pages/ICTScanner';
+import Login from '@/pages/Login';
+import Register from '@/pages/Register';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
+import OAuthConsent from '@/pages/OAuthConsent';
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
+  const publicAuthPaths = ['/login', '/register', '/forgot-password', '/reset-password', '/oauth-consent'];
+  const isPublicAuthPath = publicAuthPaths.includes(window.location.pathname);
 
   // Show loading spinner while checking app public settings or auth
   if (isLoadingPublicSettings || isLoadingAuth) {
@@ -36,20 +43,37 @@ const AuthenticatedApp = () => {
     );
   }
 
-  // Handle authentication errors
-  if (authError) {
-    if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically
-      navigateToLogin();
-      return null;
-    }
+  // Public auth routes must remain reachable even when the auth check itself
+  // reports auth_required. Previously /login fell through to PageNotFound.
+  if (isPublicAuthPath) {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/oauth-consent" element={<OAuthConsent />} />
+        <Route path="*" element={<PageNotFound />} />
+      </Routes>
+    );
+  }
+
+  // Handle authentication errors for protected application routes.
+  if (authError?.type === 'user_not_registered') {
+    return <UserNotRegisteredError />;
+  }
+  if (authError?.type === 'auth_required') {
+    return <Navigate to="/login" replace />;
   }
 
   // Render the main app
   return (
     <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/oauth-consent" element={<OAuthConsent />} />
       <Route element={<ProtectedRoute unauthenticatedElement={<Navigate to="/login" replace />} />}>
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
