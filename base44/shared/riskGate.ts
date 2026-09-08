@@ -1,9 +1,6 @@
-// QuantPilot — Pre-Order Risk Gate (Shared Module) — GO-4 Risk Engine 2.0
-// Used by preOrderRiskGate and autoOrderPipeline backend functions.
-// Checks: MAX_RISK_PER_TRADE, MAX_DAILY_LOSS, MAX_OPEN_POSITIONS,
-// MAX_CONSECUTIVE_LOSSES, MAX_DRAWDOWN, POSITION_SIZE, SL_DISTANCE,
-// BROKER_STOP_LEVEL, SPREAD_GUARD, MARGIN_GUARD.
-//
+// QuantPilot — Pre-Order Risk Gate (Shared Module) — GO-4 Risk Engine 2.1
+// Checks percentage-normalized daily/weekly loss and drawdown, mode-scoped
+// open positions, portfolio exposure, position sizing, broker stops, spread and margin.
 // Vertraulich: Kernlogik ist geschützte IP von QuantPilot AI.
 
 export interface RiskGateResult {
@@ -12,9 +9,11 @@ export interface RiskGateResult {
   checks: {
     max_risk_per_trade: boolean;
     max_daily_loss: boolean;
+    max_weekly_loss: boolean;
     max_open_positions: boolean;
     max_consecutive_losses: boolean;
     max_drawdown: boolean;
+    portfolio_exposure_cap: boolean;
     position_size: boolean;
     sl_distance: boolean;
     broker_stop_level: boolean;
@@ -25,12 +24,22 @@ export interface RiskGateResult {
     risk_per_trade: number;
     max_open_positions: number;
     daily_loss_limit: number;
+    weekly_loss_limit: number;
     max_drawdown_pause: number;
+    portfolio_exposure_cap: number;
     consecutive_loss_halving: number;
+    execution_mode: string;
     current_open_positions: number;
     daily_pnl: number;
+    daily_pnl_pct: number;
+    weekly_pnl: number;
+    weekly_pnl_pct: number;
     consecutive_losses: number;
     current_drawdown: number;
+    current_drawdown_pct: number;
+    current_exposure_pct: number;
+    proposed_exposure_pct: number;
+    total_exposure_after_order_pct: number;
     position_size: number;
     sl_distance: number;
     account_balance: number;
@@ -42,6 +51,34 @@ export interface RiskGateResult {
   };
 }
 
+function n(v: any, fallback = 0): number {
+  const x = Number(v);
+  return Number.isFinite(x) ? x : fallback;
+}
+
+function round(v: number, decimals = 6): number {
+  const p = 10 ** decimals;
+  return Math.round(v * p) / p;
+}
+
+function stepDecimals(step: number): number {
+  const s = String(step);
+  if (s.includes('e-')) return Math.min(12, Number(s.split('e-')[1]) || 0);
+  return Math.min(12, (s.split('.')[1] || '').length);
+}
+
+function tradeEventTime(t: any): number {
+  return new Date(t.closed_at || t.opened_at || t.updated_date || t.created_date || 0).getTime();
+}
+
+function mondayStartUtc(now = new Date()): number {
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const day = d.getUTCDay();
+  const diff = day === 0 ? 6 : day - 1;
+  d.setUTCDate(d.getUTCDate() - diff);
+  return d.getTime();
+}
+
 export async function evaluateRiskGate(
   base44: any,
   signal?: {
@@ -50,112 +87,147 @@ export async function evaluateRiskGate(
     volume_min?: number; volume_max?: number; volume_step?: number;
     spread?: number; free_margin?: number; required_margin?: number;
     stops_level?: number; max_spread_points?: number;
+    execution_mode?: 'PAPER' | 'SHADOW' | 'LIVE';
   }
 ): Promise<RiskGateResult> {
-  const settings = await base44.entities.RiskSettings.list("-created_date", 1);
+  const settings = await base44.entities.RiskSettings.list('-created_date', 1);
   const r = settings[0] || {
     risk_per_trade: 0.5, max_open_positions: 1, daily_loss_limit: 1.5,
-    max_drawdown_pause: 6, consecutive_loss_halving: 2,
+    weekly_loss_limit: 4, max_drawdown_pause: 6, portfolio_exposure_cap: 10,
+    consecutive_loss_halving: 2,
   };
 
-  const trades = await base44.entities.Trade.list("-created_date", 200);
-  const openTrades = trades.filter((t: any) => t.status === "open");
-  const today = new Date().toISOString().split("T")[0];
-  const todayTrades = trades.filter((t: any) => t.opened_at?.startsWith(today));
-  const dailyPnl = todayTrades.reduce((s: number, t: any) => s + (t.realized_pnl || 0), 0);
+  const balance = n(signal?.account_balance, 10000) > 0 ? n(signal?.account_balance, 10000) : 10000;
+  const mode = signal?.execution_mode || 'ALL';
+  const trades = await base44.entities.Trade.list('-created_date', 500);
+  const scopedTrades = mode === 'ALL' ? trades : trades.filter((t: any) => t.mode === mode);
+  const openTrades = scopedTrades.filter((t: any) => t.status === 'open');
 
-  const closed = trades
-    .filter((t: any) => t.status === "closed")
-    .sort((a: any, b: any) =>
-      new Date(b.closed_at || b.updated_date).getTime() - new Date(a.closed_at || a.updated_date).getTime()
-    );
+  const now = new Date();
+  const todayStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const tomorrowStart = todayStart + 24 * 60 * 60 * 1000;
+  const weekStart = mondayStartUtc(now);
+
+  const realizedInRange = (start: number, end: number) => scopedTrades
+    .filter((t: any) => {
+      const ts = tradeEventTime(t);
+      return ts >= start && ts < end;
+    })
+    .reduce((sum: number, t: any) => sum + n(t.realized_pnl), 0);
+
+  const dailyPnl = realizedInRange(todayStart, tomorrowStart);
+  const weeklyPnl = realizedInRange(weekStart, tomorrowStart);
+  const dailyLossPct = dailyPnl < 0 ? Math.abs(dailyPnl) / balance * 100 : 0;
+  const weeklyLossPct = weeklyPnl < 0 ? Math.abs(weeklyPnl) / balance * 100 : 0;
+
+  const closed = scopedTrades
+    .filter((t: any) => t.status === 'closed')
+    .sort((a: any, b: any) => tradeEventTime(b) - tradeEventTime(a));
 
   let consecLosses = 0;
   for (const t of closed) {
-    if ((t.realized_pnl || 0) < 0) consecLosses++;
+    if (n(t.realized_pnl) < 0) consecLosses++;
     else break;
   }
 
   let run = 0, peak = 0, maxDD = 0;
   for (const t of [...closed].reverse()) {
-    run += t.realized_pnl || 0;
+    run += n(t.realized_pnl);
     if (run > peak) peak = run;
-    const dd = peak - run;
-    if (dd > maxDD) maxDD = dd;
+    maxDD = Math.max(maxDD, peak - run);
   }
+  const maxDDPct = maxDD / balance * 100;
 
-  // Dynamic position sizing: risk_amount / (sl_distance * contract_size)
+  // Dynamic position sizing: never round upward beyond the configured risk budget.
   let posSize = 0, slDist = 0;
-  if (signal?.entry_price && signal?.stop_loss) {
-    slDist = Math.abs(signal.entry_price - signal.stop_loss);
-    const balance = signal.account_balance || 10000;
-    const riskPct = (r.risk_per_trade || 0.5) / 100;
+  const entry = n(signal?.entry_price);
+  const stop = n(signal?.stop_loss);
+  const contractSize = n(signal?.contract_size, 100) > 0 ? n(signal?.contract_size, 100) : 100;
+  if (entry > 0 && stop > 0) {
+    slDist = Math.abs(entry - stop);
+    const riskPct = n(r.risk_per_trade, 0.5) / 100;
     const riskAmount = balance * riskPct;
-    const contractSize = signal.contract_size || 100;
     if (slDist > 0 && contractSize > 0) {
-      posSize = riskAmount / (slDist * contractSize);
-      const volStep = signal.volume_step || 0.01;
-      posSize = Math.round(posSize / volStep) * volStep;
-      posSize = Math.round(posSize * 100) / 100;
-      const volMin = signal.volume_min || 0.01;
-      const volMax = signal.volume_max || 100;
-      posSize = Math.max(volMin, Math.min(volMax, posSize));
+      const rawSize = riskAmount / (slDist * contractSize);
+      const volStep = n(signal?.volume_step, 0.01) > 0 ? n(signal?.volume_step, 0.01) : 0.01;
+      const volMin = n(signal?.volume_min, 0.01);
+      const volMax = n(signal?.volume_max, 100);
+      const decimals = stepDecimals(volStep);
+      if (rawSize >= volMin) {
+        posSize = Math.floor((rawSize + Number.EPSILON) / volStep) * volStep;
+        posSize = Number(posSize.toFixed(decimals));
+        posSize = Math.min(volMax, posSize);
+      }
     }
   }
 
-  // Broker stop level: SL/TP must be at least stops_level * tick_size away
-  const stopsLevel = signal?.stops_level || 0;
-  const tickSize = signal?.tick_size || 0.01;
+  const currentExposureValue = openTrades.reduce((sum: number, t: any) => sum + Math.abs(n(t.position_value)), 0);
+  const proposedExposureValue = entry > 0 && posSize > 0 ? Math.abs(entry * posSize * contractSize) : 0;
+  const currentExposurePct = currentExposureValue / balance * 100;
+  const proposedExposurePct = proposedExposureValue / balance * 100;
+  const totalExposureAfterOrderPct = currentExposurePct + proposedExposurePct;
+
+  const stopsLevel = n(signal?.stops_level);
+  const tickSize = n(signal?.tick_size, 0.01) > 0 ? n(signal?.tick_size, 0.01) : 0.01;
   const minStopDist = stopsLevel * tickSize;
-  const tpDistance = signal?.take_profit && signal?.entry_price
-    ? Math.abs(signal.take_profit - signal.entry_price) : 0;
+  const tpDistance = n(signal?.take_profit) > 0 && entry > 0 ? Math.abs(n(signal?.take_profit) - entry) : 0;
   const brokerStopLevelPass = slDist >= minStopDist && tpDistance >= minStopDist;
 
-  // Spread guard
-  const spread = signal?.spread || 0;
-  const maxSpread = signal?.max_spread_points || 50;
+  const spread = n(signal?.spread);
+  const maxSpread = n(signal?.max_spread_points, 50);
   const spreadGuardPass = spread <= maxSpread;
 
-  // Margin guard: free_margin must cover required_margin with 10% buffer
-  const freeMargin = signal?.free_margin || 0;
-  const requiredMargin = signal?.required_margin || 0;
+  const freeMargin = n(signal?.free_margin);
+  const requiredMargin = n(signal?.required_margin);
   const marginGuardPass = requiredMargin === 0 || freeMargin >= requiredMargin * 1.1;
 
   const checks = {
-    max_risk_per_trade: (r.risk_per_trade || 0.5) <= 2,
-    max_daily_loss: dailyPnl >= -(r.daily_loss_limit || 1.5),
-    max_open_positions: openTrades.length < (r.max_open_positions || 1),
-    max_consecutive_losses: consecLosses < (r.consecutive_loss_halving || 2),
-    max_drawdown: maxDD < (r.max_drawdown_pause || 6),
-    position_size: posSize > 0 && posSize <= 100,
+    max_risk_per_trade: n(r.risk_per_trade, 0.5) <= 2,
+    max_daily_loss: dailyLossPct < n(r.daily_loss_limit, 1.5),
+    max_weekly_loss: weeklyLossPct < n(r.weekly_loss_limit, 4),
+    max_open_positions: openTrades.length < n(r.max_open_positions, 1),
+    max_consecutive_losses: consecLosses < n(r.consecutive_loss_halving, 2),
+    max_drawdown: maxDDPct < n(r.max_drawdown_pause, 6),
+    portfolio_exposure_cap: totalExposureAfterOrderPct <= n(r.portfolio_exposure_cap, 10),
+    position_size: posSize > 0 && posSize <= n(signal?.volume_max, 100),
     sl_distance: slDist > 0,
     broker_stop_level: brokerStopLevelPass,
     spread_guard: spreadGuardPass,
     margin_guard: marginGuardPass,
   };
 
-  const pass = Object.values(checks).every((c) => c === true);
+  const pass = Object.values(checks).every(Boolean);
   const failedChecks = Object.entries(checks).filter(([, v]) => !v).map(([k]) => k);
-  const reason = pass ? "ALL_CHECKS_PASS" : `FAIL: ${failedChecks.join(", ")}`;
+  const reason = pass ? 'ALL_CHECKS_PASS' : `FAIL: ${failedChecks.join(', ')}`;
 
   return {
     pass,
     reason,
     checks,
     details: {
-      risk_per_trade: r.risk_per_trade || 0.5,
-      max_open_positions: r.max_open_positions || 1,
-      daily_loss_limit: r.daily_loss_limit || 1.5,
-      max_drawdown_pause: r.max_drawdown_pause || 6,
-      consecutive_loss_halving: r.consecutive_loss_halving || 2,
+      risk_per_trade: n(r.risk_per_trade, 0.5),
+      max_open_positions: n(r.max_open_positions, 1),
+      daily_loss_limit: n(r.daily_loss_limit, 1.5),
+      weekly_loss_limit: n(r.weekly_loss_limit, 4),
+      max_drawdown_pause: n(r.max_drawdown_pause, 6),
+      portfolio_exposure_cap: n(r.portfolio_exposure_cap, 10),
+      consecutive_loss_halving: n(r.consecutive_loss_halving, 2),
+      execution_mode: mode,
       current_open_positions: openTrades.length,
-      daily_pnl: Math.round(dailyPnl * 100) / 100,
+      daily_pnl: round(dailyPnl, 2),
+      daily_pnl_pct: round(dailyLossPct, 4),
+      weekly_pnl: round(weeklyPnl, 2),
+      weekly_pnl_pct: round(weeklyLossPct, 4),
       consecutive_losses: consecLosses,
-      current_drawdown: Math.round(maxDD * 100) / 100,
+      current_drawdown: round(maxDD, 2),
+      current_drawdown_pct: round(maxDDPct, 4),
+      current_exposure_pct: round(currentExposurePct, 4),
+      proposed_exposure_pct: round(proposedExposurePct, 4),
+      total_exposure_after_order_pct: round(totalExposureAfterOrderPct, 4),
       position_size: posSize,
-      sl_distance: Math.round(slDist * 100) / 100,
-      account_balance: signal?.account_balance || 10000,
-      contract_size: signal?.contract_size || 100,
+      sl_distance: round(slDist, 8),
+      account_balance: balance,
+      contract_size: contractSize,
       spread,
       free_margin: freeMargin,
       required_margin: requiredMargin,
