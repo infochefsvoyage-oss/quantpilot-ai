@@ -19,6 +19,7 @@ export default function Portfolio() {
           Portfolio
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">Portfolio Engine – Exposure-Überwachung & Kapitalerhalt</p>
+        <div className="mt-2 rounded border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">PROTOTYPE SNAPSHOT — diese Portfolio-KPIs/Tabellen stammen noch aus statischen Frontend-Daten und sind nicht als Live-Kontostand zu interpretieren.</div>
       </div>
 
       {/* Summary */}
