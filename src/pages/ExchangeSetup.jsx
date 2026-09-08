@@ -69,6 +69,7 @@ export default function ExchangeSetup() {
             Exchange Setup
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">Exchange Router – Binance & MEXC Adapter-Konfiguration</p>
+          <div className="mt-2 text-xs text-warning">Hinweis: Markt-Ticker/API-Reachability sind live; Phase/API-Key-ID/Enable-Flags stammen derzeit aus Prototype-Konfiguration und sind keine Auth-Connectivity-Bestätigung.</div>
         </div>
         <button
           onClick={fetchLive}
