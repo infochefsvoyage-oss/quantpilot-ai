@@ -155,7 +155,7 @@ export default function Dashboard() {
 
       {/* PnL Übersicht */}
       <div className="mt-4">
-        <PanelCard title="PnL Übersicht">
+        <PanelCard title="PnL Übersicht · PROTOTYPE SNAPSHOT" action={<span className="text-xs text-warning">nicht Live-Konto</span>}>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <PnlMetric
               label="Tages-PnL"
