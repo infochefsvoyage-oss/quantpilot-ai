@@ -22,17 +22,17 @@ export async function fetchJson(url, headers, timeoutMs = 6000) {
   }
 }
 
-// Tick freshness is the age of the market tick relative to the bridge server clock.
-// IMPORTANT: server_time_ms is a clock reference, not the tick timestamp itself.
-// Comparing Date.now() directly to server_time_ms only measures cross-host clock skew
-// and previously produced a false ~80s stale result even while ticks were flowing.
+// Tick freshness can only be expressed as an absolute age when the tick timestamp is
+// in the same clock domain as the observer. MT5 broker timestamps may use broker-local
+// time, while Base44/bridge clocks use UTC. Never turn that clock skew into a false PASS.
+// executionReadinessCheck therefore also performs an active two-sample tick observation.
 export function computeTickAgeMs(tickJ) {
   const tickTimeMs = tickJ.time ? Number(tickJ.time) * 1000 : null;
-  const serverTimeMs = typeof tickJ.server_time_ms === "number" && tickJ.server_time_ms > 0
-    ? tickJ.server_time_ms : null;
-  if (tickTimeMs !== null && serverTimeMs !== null) return Math.max(0, serverTimeMs - tickTimeMs);
-  if (tickTimeMs !== null) return Math.max(0, Date.now() - tickTimeMs);
-  return null;
+  if (tickTimeMs === null) return null;
+  const age = Date.now() - tickTimeMs;
+  // More than 15 minutes in either direction indicates incompatible clock domains.
+  if (Math.abs(age) > 15 * 60 * 1000) return null;
+  return Math.max(0, age);
 }
 
 export function getServerTimeMs(tickJ) {
