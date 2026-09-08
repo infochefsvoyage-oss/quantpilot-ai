@@ -91,10 +91,21 @@ export default async function(req: Request): Promise<Response> {
     const errorRateStatus = errorRatePass ? "PASS" : "FAIL";
 
     // ── 4) Tick Freshness Check ────────────────────────────────────────
+    // MT5 broker timestamps can be broker-local rather than UTC. To avoid a false
+    // stale/fresh verdict caused by clock skew, actively sample the tick twice.
     const tickAgeMs = computeTickAgeMs(tickJ);
-    const tickFresh = tickAgeMs !== null && tickAgeMs <= FRESHNESS_THRESHOLD_MS;
-    const tickStatus = tickAgeMs === null ? "BLOCK" : tickFresh ? "PASS" : "FAIL";
-    const tickReason = tickAgeMs === null ? "NO_TICK_TIME_BLOCK" : tickFresh ? "FRESH" : "STALE";
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    const tick2 = await fetchJson(`${base}/symbols/${SYMBOL}/tick`, headers);
+    const tickJ2 = tick2.json || {};
+    const tickMoved = tick2.ok && (
+      Number(tickJ2.time || 0) > Number(tickJ.time || 0) ||
+      Number(tickJ2.bid || 0) !== Number(tickJ.bid || 0) ||
+      Number(tickJ2.ask || 0) !== Number(tickJ.ask || 0)
+    );
+    const absoluteAgeFresh = tickAgeMs !== null && tickAgeMs <= FRESHNESS_THRESHOLD_MS;
+    const tickFresh = tickMoved || absoluteAgeFresh;
+    const tickStatus = tickFresh ? "PASS" : tickAgeMs === null ? "BLOCK" : "FAIL";
+    const tickReason = tickMoved ? "ACTIVE_TICK_OBSERVED" : absoluteAgeFresh ? "FRESH_ABSOLUTE_AGE" : tickAgeMs === null ? "CLOCK_DOMAIN_UNVERIFIED_NO_MOVEMENT" : "STALE";
 
     // ── 5) Account Sync (READ ONLY) ──────────────────────────────────
     const accountSyncOk = acc.ok && (account.balance != null || account.equity != null);
@@ -134,8 +145,10 @@ export default async function(req: Request): Promise<Response> {
         reason: tickReason,
         tick_age_ms: tickAgeMs,
         threshold_ms: FRESHNESS_THRESHOLD_MS,
-        latest_tick_timestamp: tickJ.time ? tickJ.time * 1000 : null,
-        server_time_ms: getServerTimeMs(tickJ),
+        latest_tick_timestamp: tickJ2.time ? tickJ2.time * 1000 : (tickJ.time ? tickJ.time * 1000 : null),
+        server_time_ms: getServerTimeMs(tickJ2) || getServerTimeMs(tickJ),
+        active_tick_observed: tickMoved,
+        observation_window_ms: 1500,
       },
       account_sync: {
         status: accountStatus,
