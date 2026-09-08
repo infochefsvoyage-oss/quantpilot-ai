@@ -154,7 +154,7 @@ export async function evaluateRiskGate(
       const volMax = n(signal?.volume_max, 100);
       const decimals = stepDecimals(volStep);
       if (rawSize >= volMin) {
-        posSize = Math.floor((rawSize + Number.EPSILON) / volStep) * volStep;
+        posSize = Math.floor(rawSize / volStep + 1e-9) * volStep;
         posSize = Number(posSize.toFixed(decimals));
         posSize = Math.min(volMax, posSize);
       }
