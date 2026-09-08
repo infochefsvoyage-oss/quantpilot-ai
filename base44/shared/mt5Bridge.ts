@@ -22,13 +22,15 @@ export async function fetchJson(url, headers, timeoutMs = 6000) {
   }
 }
 
-// Tick freshness — primary basis is bridge server_time_ms (bridge host clock,
-// same host as MT5 → no cross-host clock skew). Falls back to tick.time * 1000.
+// Tick freshness is the age of the market tick relative to the bridge server clock.
+// IMPORTANT: server_time_ms is a clock reference, not the tick timestamp itself.
+// Comparing Date.now() directly to server_time_ms only measures cross-host clock skew
+// and previously produced a false ~80s stale result even while ticks were flowing.
 export function computeTickAgeMs(tickJ) {
-  const tickTimeMs = tickJ.time ? tickJ.time * 1000 : null;
+  const tickTimeMs = tickJ.time ? Number(tickJ.time) * 1000 : null;
   const serverTimeMs = typeof tickJ.server_time_ms === "number" && tickJ.server_time_ms > 0
     ? tickJ.server_time_ms : null;
-  if (serverTimeMs !== null) return Math.max(0, Date.now() - serverTimeMs);
+  if (tickTimeMs !== null && serverTimeMs !== null) return Math.max(0, serverTimeMs - tickTimeMs);
   if (tickTimeMs !== null) return Math.max(0, Date.now() - tickTimeMs);
   return null;
 }
