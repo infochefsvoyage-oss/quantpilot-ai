@@ -26,6 +26,7 @@ export default function ReverseShort() {
         <p className="mt-1 text-sm text-muted-foreground">
           Short-Strategien, Reversal-Logik, Liquiditäts-Sweeps, Runner-Exit-Strategien & Trailing-Stop-Management
         </p>
+        <div className="mt-2 rounded border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">PROTOTYPE PLAYBOOK — die angezeigten Reversal-Signale sind statische Test-/Playbook-Daten und werden nicht als Live-Signale verwendet.</div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
