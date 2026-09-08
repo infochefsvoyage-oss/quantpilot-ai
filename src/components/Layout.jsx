@@ -95,8 +95,8 @@ export default function Layout({ children = null }) {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Daten-Lag</span>
-              <span className="font-mono text-xs text-muted-foreground">{runtimeStatus.data_lag_ms}ms</span>
+              <span className="text-xs text-muted-foreground">Runtime Snapshot</span>
+              <span className="font-mono text-xs text-warning">PROTOTYPE · {runtimeStatus.data_lag_ms}ms</span>
             </div>
           </div>
 
