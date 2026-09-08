@@ -79,7 +79,7 @@ export default async function(req: Request): Promise<Response> {
     const risk = await evaluateRiskGate(base44, {
       entry_price:s.entry_price, stop_loss:s.stop_loss, take_profit:s.take_profit_1, side:s.side,
       account_balance:PAPER_TEST_EQUITY, contract_size:1, volume_min:0.00001, volume_max:100, volume_step:0.00001,
-      spread:Number(s.spread_pct || 0), max_spread_points:0.08
+      spread:Number(s.spread_pct || 0), max_spread_points:0.08, execution_mode:'PAPER'
     });
     await base44.entities.AuditLog.create({
       event:'E2E_PAPER_RISK_GATE', category:'RISK', severity:risk.pass ? 'INFO' : 'WARNING', actor:'sniper_e2e',
