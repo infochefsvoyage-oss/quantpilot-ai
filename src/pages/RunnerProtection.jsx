@@ -18,6 +18,7 @@ export default function RunnerProtection() {
         <p className="mt-1 text-sm text-muted-foreground">
           Dynamische Trailing-Stops, Break-Even-Management, Teilgewinn-Logik & Volatilitätsbasierte Stop-Anpassung
         </p>
+        <div className="mt-2 rounded border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">PROTOTYPE / HISTORICAL — Runner-Positionen und Audit-Zeilen auf dieser Seite sind noch statische Demonstrationsdaten, keine aktuellen Live-Positionen.</div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
