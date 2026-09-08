@@ -5,8 +5,7 @@ import {
   AlertTriangle, Gauge, Layers,
 } from "lucide-react";
 import {
-  runtimeStatus, riskDefaults, portfolioSummary,
-  openTrades, closedTradesToday, pendingGovernance, ulfWarnings, decisionConfig, formatPnl,
+  runtimeStatus, riskDefaults, pendingGovernance, ulfWarnings, decisionConfig, formatPnl,
 } from "@/lib/quantData";
 import PanelCard from "@/components/PanelCard";
 import { base44 } from "@/api/base44Client";
@@ -56,10 +55,13 @@ export default function Dashboard() {
   const [liveSignals, setLiveSignals] = useState([]);
   const [signalStatus, setSignalStatus] = useState("LOADING");
   const topSignal = liveSignals.find((s) => s.decision === "ENTER") || liveSignals[0] || null;
-  const dailyPnlPositive = portfolioSummary.daily_pnl >= 0;
-  const weeklyPnlPositive = portfolioSummary.weekly_pnl >= 0;
-  const realizedPnl = closedTradesToday.reduce((sum, t) => sum + (t.pnl || 0), 0);
-  const unrealizedPnl = openTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+  const [paperTrades, setPaperTrades] = useState([]);
+  const [tradeLoading, setTradeLoading] = useState(true);
+  const [tradeError, setTradeError] = useState(null);
+  const openTrades = paperTrades.filter((t) => t.status === "open");
+  const closedTrades = paperTrades.filter((t) => t.status === "closed");
+  const realizedPnl = closedTrades.reduce((sum, t) => sum + Number(t.realized_pnl || 0), 0);
+  const unrealizedPnl = openTrades.reduce((sum, t) => sum + Number(t.unrealized_pnl || 0), 0);
   const totalPnl = realizedPnl + unrealizedPnl;
   const totalPnlPositive = totalPnl >= 0;
   const [exchangeLive, setExchangeLive] = useState(null);
@@ -82,6 +84,19 @@ export default function Dashboard() {
         if (mounted) setExchangeLoading(false);
       }
     };
+    const loadTrades = async () => {
+      try {
+        const rows = await base44.entities.Trade.filter({ mode: "PAPER" }, "-created_date", 100);
+        if (mounted) {
+          setPaperTrades(Array.isArray(rows) ? rows : []);
+          setTradeError(null);
+        }
+      } catch (e) {
+        if (mounted) { setPaperTrades([]); setTradeError(e?.message || "Trade sync failed"); }
+      } finally {
+        if (mounted) setTradeLoading(false);
+      }
+    };
     const loadSignals = async () => {
       try {
         const resp = await base44.functions.invoke("fetchSniperSignals", {});
@@ -96,9 +111,11 @@ export default function Dashboard() {
     };
     load();
     loadSignals();
+    loadTrades();
     const id = setInterval(load, 30000);
     const signalId = setInterval(loadSignals, 30000);
-    return () => { mounted = false; clearInterval(id); clearInterval(signalId); };
+    const tradeId = setInterval(loadTrades, 10000);
+    return () => { mounted = false; clearInterval(id); clearInterval(signalId); clearInterval(tradeId); };
   }, []);
 
   return (
@@ -123,23 +140,23 @@ export default function Dashboard() {
         <KpiCard
           icon={Layers}
           label="Offene Positionen"
-          value={`${portfolioSummary.open_positions}`}
-          sub={`Max ${riskDefaults.max_open_positions} · Exposure ${portfolioSummary.exposure_percent}%`}
+          value={tradeLoading ? "…" : `${openTrades.length}`}
+          sub={`Max ${riskDefaults.max_open_positions} · PAPER · 10s Sync`}
           color="primary"
         />
         <KpiCard
-          icon={dailyPnlPositive ? TrendingUp : TrendingDown}
-          label="Tages-PnL"
-          value={formatPnl(portfolioSummary.daily_pnl)}
-          sub={`${formatPnl(portfolioSummary.daily_pnl_percent)}% · Ziel ${riskDefaults.daily_target}%`}
-          color={dailyPnlPositive ? "profit" : "loss"}
+          icon={totalPnlPositive ? TrendingUp : TrendingDown}
+          label="PAPER-PnL"
+          value={tradeLoading ? "…" : formatPnl(totalPnl)}
+          sub="Trade Entity · automatisch synchronisiert"
+          color={totalPnlPositive ? "profit" : "loss"}
         />
         <KpiCard
           icon={Gauge}
           label="Max Drawdown"
-          value={`${portfolioSummary.max_drawdown}%`}
-          sub={`Limit ${riskDefaults.max_drawdown_pause}%`}
-          color={portfolioSummary.max_drawdown > riskDefaults.max_drawdown_pause * 0.7 ? "warning" : "primary"}
+          value={`${riskDefaults.max_drawdown_pause}%`}
+          sub="Hard Limit · Risk Engine 2.1"
+          color="primary"
         />
       </div>
 
@@ -155,24 +172,24 @@ export default function Dashboard() {
 
       {/* PnL Übersicht */}
       <div className="mt-4">
-        <PanelCard title="PnL Übersicht · PROTOTYPE SNAPSHOT" action={<span className="text-xs text-warning">nicht Live-Konto</span>}>
+        <PanelCard title="PAPER Portfolio · Trade Entity" action={<span className="text-xs text-muted-foreground">10s Auto-Sync · kein Live-Konto</span>}>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <PnlMetric
-              label="Tages-PnL"
-              value={formatPnl(portfolioSummary.daily_pnl)}
-              sub={`${formatPnl(portfolioSummary.daily_pnl_percent)}%`}
-              positive={dailyPnlPositive}
+              label="Gesamt-PnL"
+              value={tradeLoading ? "…" : formatPnl(totalPnl)}
+              sub="PAPER Records"
+              positive={totalPnlPositive}
             />
             <PnlMetric
-              label="Wochen-PnL"
-              value={formatPnl(portfolioSummary.weekly_pnl)}
-              sub={`${formatPnl(portfolioSummary.weekly_pnl_percent)}%`}
-              positive={weeklyPnlPositive}
+              label="Offene Positionen"
+              value={tradeLoading ? "…" : `${openTrades.length}`}
+              sub="status = open"
+              positive={openTrades.length <= riskDefaults.max_open_positions}
             />
             <PnlMetric
               label="Realisiert (heute)"
               value={formatPnl(realizedPnl)}
-              sub={`${closedTradesToday.length} Trades geschlossen`}
+              sub={`${closedTrades.length} PAPER Trades geschlossen`}
               positive={realizedPnl >= 0}
             />
             <PnlMetric
@@ -183,10 +200,12 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* Geschlossene Trades heute */}
+          {tradeError && <div className="mt-3 rounded border border-loss/20 bg-loss/5 p-2 font-mono text-xs text-loss">TRADE SYNC ERROR · {tradeError}</div>}
+
+          {/* Geschlossene PAPER Trades */}
           <div className="mt-4">
             <div className="mb-2 flex items-center justify-between">
-              <h4 className="text-xs font-semibold text-muted-foreground">Geschlossene Trades heute</h4>
+              <h4 className="text-xs font-semibold text-muted-foreground">Geschlossene PAPER Trades</h4>
               <span className={`font-mono text-sm font-bold ${totalPnlPositive ? "text-profit" : "text-loss"}`}>
                 Σ {formatPnl(totalPnl)}
               </span>
@@ -199,16 +218,16 @@ export default function Dashboard() {
                     <th className="pb-2 text-left font-medium">Seite</th>
                     <th className="pb-2 text-center font-medium">Status</th>
                     <th className="pb-2 text-right font-medium">PnL</th>
-                    <th className="pb-2 text-right font-medium">PnL %</th>
+                    <th className="pb-2 text-right font-medium">Closed</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {closedTradesToday.length === 0 ? (
+                  {closedTrades.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-4 text-center text-xs text-muted-foreground">Keine geschlossenen Trades heute</td>
                     </tr>
                   ) : (
-                    closedTradesToday.map((t) => (
+                    closedTrades.map((t) => (
                       <tr key={t.id} className="border-b border-border/50">
                         <td className="py-2.5 font-mono font-semibold">{t.symbol}</td>
                         <td className="py-2.5">
@@ -218,10 +237,10 @@ export default function Dashboard() {
                           <StatusBadge status={t.status} color={t.status === "CLOSED" ? "profit" : "loss"} />
                         </td>
                         <td className={`py-2.5 text-right font-mono font-semibold ${t.pnl >= 0 ? "text-profit" : "text-loss"}`}>
-                          {formatPnl(t.pnl)}
+                          {formatPnl(Number(t.realized_pnl || 0))}
                         </td>
-                        <td className={`py-2.5 text-right font-mono ${t.pnl >= 0 ? "text-profit" : "text-loss"}`}>
-                          {formatPnl(t.pnl_percent)}%
+                        <td className={`py-2.5 text-right font-mono ${Number(t.realized_pnl || 0) >= 0 ? "text-profit" : "text-loss"}`}>
+                          {t.closed_at ? new Date(t.closed_at).toLocaleDateString("de-DE") : "—"}
                         </td>
                       </tr>
                     ))
@@ -346,7 +365,7 @@ export default function Dashboard() {
 
       {/* Offene Positionen */}
       <div className="mt-4">
-        <PanelCard title="Offene Positionen">
+        <PanelCard title="Offene PAPER Positionen" action={<span className="font-mono text-xs text-muted-foreground">Trade Entity · 10s Auto-Sync</span>}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -360,7 +379,7 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {openTrades.map((t) => (
+                {openTrades.length === 0 ? <tr><td colSpan={6} className="py-4 text-center text-xs text-muted-foreground">Keine offene PAPER-Position</td></tr> : openTrades.map((t) => (
                   <tr key={t.id} className="border-b border-border/50">
                     <td className="py-2.5 font-mono font-semibold">{t.symbol}</td>
                     <td className="py-2.5">
@@ -369,9 +388,9 @@ export default function Dashboard() {
                     <td className="py-2.5 text-right font-mono text-muted-foreground">{t.entry_price.toLocaleString("de-DE", { minimumFractionDigits: 2 })}</td>
                     <td className="py-2.5 text-right font-mono text-loss">{t.stop_loss.toLocaleString("de-DE", { minimumFractionDigits: 2 })}</td>
                     <td className="py-2.5 text-center">
-                      <StatusBadge status={t.status} color={t.status.includes("TP") ? "profit" : "muted"} />
+                      <StatusBadge status={t.status} color="muted" />
                     </td>
-                    <td className="py-2.5 text-right font-mono font-semibold text-profit">{formatPnl(t.pnl)}</td>
+                    <td className={`py-2.5 text-right font-mono font-semibold ${Number(t.unrealized_pnl || 0) >= 0 ? "text-profit" : "text-loss"}`}>{formatPnl(Number(t.unrealized_pnl || 0))}</td>
                   </tr>
                 ))}
               </tbody>
