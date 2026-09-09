@@ -363,6 +363,12 @@ export async function scanLiveSniperSymbol(exchange: string, symbol: string) {
     source_mode: bundle.source_mode,
     fallback_reason: bundle.fallback_reason,
     endpoint: r1.endpoint,
+    source_endpoints: {
+      kline_1m: r1.endpoint || null,
+      kline_15m: r15.endpoint || null,
+      kline_4h: r4.endpoint || null,
+      book_ticker: book.endpoint || null,
+    },
     latency_ms: Math.max(r1.latency_ms || 0, r15.latency_ms || 0, r4.latency_ms || 0, book.latency_ms || 0),
     created_date: new Date().toISOString(),
     notes: all4 ? "Alle 4 A+ Gates auf Live-Candles bestätigt" : `${gateCount}/4 A+ Gates bestätigt`,
