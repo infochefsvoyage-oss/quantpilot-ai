@@ -14,7 +14,7 @@ const BINANCE_ENDPOINTS = [
 ];
 const MEXC_API = "https://api.mexc.com";
 
-// Fallback: CoinGecko public API (no key, not geo-blocked from backend runtime)
+// Last-resort fallback: CoinGecko public API (no key; availability is runtime-dependent).
 const COINGECKO_MARKETS = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,solana,dogecoin";
 const COINGECKO_ID_MAP = { BTCUSDT: "bitcoin", ETHUSDT: "ethereum", SOLUSDT: "solana", DOGEUSDT: "dogecoin" };
 
@@ -79,8 +79,8 @@ async function fetchCoinGeckoFallback() {
         price_change_pct: c.price_change_percentage_24h ?? 0,
         high_24h: c.high_24h ?? 0,
         low_24h: c.low_24h ?? 0,
-        volume_24h: c.total_volume ?? 0,
-        quote_volume_24h: (c.total_volume ?? 0) * (c.current_price ?? 0),
+        volume_24h: c.current_price ? (c.total_volume ?? 0) / c.current_price : 0,
+        quote_volume_24h: c.total_volume ?? 0,
         source_timestamp_ms: c.last_updated ? Date.parse(c.last_updated) : null,
       };
     })
@@ -152,7 +152,8 @@ export default async function(req) {
     // Rate-limit heuristic: if latency > 3000ms, flag as THROTTLED
     const binanceRateLimit = binance.latency_ms > 3000 ? "THROTTLED" : "OK";
     const mexcRateLimit = mexc.latency_ms > 3000 ? "THROTTLED" : "OK";
-    const aggregateFreshness = (tickers:any[]) => tickers.length > 0 && tickers.every((t:any) => t.data_fresh === true);
+    const aggregateFreshness = (tickers:any[]) =>
+      SYMBOLS.every((symbol) => tickers.some((t:any) => t.symbol === symbol && t.data_fresh === true));
     const binanceFresh = aggregateFreshness(binance.tickers);
     const mexcFresh = aggregateFreshness(mexc.tickers);
 
