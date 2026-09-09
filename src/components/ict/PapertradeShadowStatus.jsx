@@ -13,14 +13,19 @@ import {
 
 export default function PapertradeShadowStatus() {
   const [data, setData] = useState(null);
+  const [forwardTrades, setForwardTrades] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        const logs = await base44.entities.AuditLog.list("-created_date", 50);
-        // Prefer combined audit log (has all metrics in one record)
+        const [logs, trades] = await Promise.all([
+          base44.entities.AuditLog.list("-created_date", 50),
+          base44.entities.ForwardTrade.list("-created_date", 500),
+        ]);
+        // AuditLog is supplemental metadata only. ForwardTrade is the canonical
+        // MT5 PAPER SHADOW ledger for counts and realized R metrics.
         const extendedLogs = (logs || []).filter(
           (l) => l.event === "PAPERTRADE_SHADOW_EXTENDED_RUN_V3" ||
                    l.event === "PAPERTRADE_SHADOW_EXTENDED_RUN_V2" ||
@@ -36,12 +41,15 @@ export default function PapertradeShadowStatus() {
           (l) => l.event === "PAPERTRADE_SHADOW_RUN"
         );
         let latest = extendedLogs[0] || combinedLogs[0] || auditLogs[0] || runLogs[0] || null;
-        if (latest) {
-          latest = await base44.entities.AuditLog.get(latest.id);
+        if (latest) latest = await base44.entities.AuditLog.get(latest.id);
+        const mt5Paper = (trades || []).filter((t) => t.dataset_source === "MT5_BRIDGE_LIVE_PAPER");
+        if (active) {
+          setData(latest);
+          setForwardTrades(mt5Paper);
+          setLoading(false);
         }
-        if (active) { setData(latest); setLoading(false); }
       } catch {
-        if (active) { setData(null); setLoading(false); }
+        if (active) { setData(null); setForwardTrades([]); setLoading(false); }
       }
     })();
     return () => { active = false; };
