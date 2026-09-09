@@ -246,21 +246,21 @@ export default function Go3MT5E2EAudit() {
           14/14 E2E Test Matrix
         </h4>
         <div className="grid grid-cols-1 gap-1.5 md:grid-cols-2">
-          {E2E_TESTS.map((t) => {
-            const result = tests[t.id + "_" + t.name] || tests[`${t.id}_${t.name}`] || { status: "FAIL", reason: "NOT_RUN" };
-            const isPass = result.status === "PASS" || (t.expected === "REJECTED" && result.status === "PASS");
+          {canonicalResults.map(({ id, key, name, expected, result }) => {
+            const status = result?.status || "PENDING";
+            const isPass = status === "PASS" || status === "pass";
             return (
-              <div key={t.id} className={`flex items-center justify-between rounded-md border px-3 py-2 ${
+              <div key={key} className={`flex items-center justify-between rounded-md border px-3 py-2 ${
                 isPass ? "border-profit/20 bg-profit/5" : "border-loss/20 bg-loss/5"
               }`}>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-semibold text-muted-foreground">{t.id}</span>
-                  {statusIcon(result.status)}
-                  <span className="text-xs font-medium text-foreground">{t.name}</span>
+                  <span className="font-mono text-xs font-semibold text-muted-foreground">{id}</span>
+                  {statusIcon(isPass ? "PASS" : status)}
+                  <span className="text-xs font-medium text-foreground">{name}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`font-mono text-xs font-bold ${statusColor(result.status)}`}>{result.status || "FAIL"}</span>
-                  <span className="font-mono text-xs text-muted-foreground">exp: {t.expected}</span>
+                  <span className={`font-mono text-xs font-bold ${isPass ? "text-profit" : "text-loss"}`}>{String(status).toUpperCase()}</span>
+                  <span className="font-mono text-xs text-muted-foreground">key: {key} · exp: {expected}</span>
                 </div>
               </div>
             );
