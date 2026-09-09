@@ -4,7 +4,7 @@
 
 const TIMEOUT = 20000;
 const MEXC_CONTRACT = 'https://contract.mexc.com';
-const CFTC_TFF = 'https://www.cftc.gov/dea/newcot/FinFutWk.txt';
+const CFTC_TFF_API = 'https://publicreporting.cftc.gov/resource/gpe5-46if.json';
 const FRED_DFF = 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=DFF';
 const FRED_DGS10 = 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10';
 const GDELT = 'https://api.gdeltproject.org/api/v2/doc/doc';
@@ -104,18 +104,34 @@ export async function fetchMacro() {
 }
 
 export async function fetchCotBitcoin() {
-  const r = await fetchText(CFTC_TFF);
-  if (!r.ok) return { status: 'UNAVAILABLE', source: 'CFTC_TFF', confirmed: false, http: r.status };
-  const line = r.text.split(/\r?\n/).find((x) => /BITCOIN/i.test(x));
-  if (!line) return { status: 'NO_MATCH', source: 'CFTC_TFF', confirmed: false, note: 'Bitcoin row not found in current TFF file' };
-  // Preserve the official row rather than silently guessing column semantics.
-  const cols = line.split(',').map((x) => x.trim().replace(/^"|"$/g, ''));
+  const where = encodeURIComponent("upper(market_and_exchange_names) like '%BITCOIN%'");
+  const order = encodeURIComponent('report_date_as_yyyy_mm_dd DESC');
+  const r = await fetchJson(`${CFTC_TFF_API}?$limit=1&$where=${where}&$order=${order}`);
+  const row = Array.isArray(r.json) ? r.json[0] : null;
+  if (!r.ok || !row) return { status: 'UNAVAILABLE', source: 'CFTC_TFF_PUBLIC_API', confirmed: false, http: r.status };
+  const levLong = n(row.lev_money_positions_long);
+  const levShort = n(row.lev_money_positions_short);
+  const dealerLong = n(row.dealer_positions_long_all);
+  const dealerShort = n(row.dealer_positions_short_all);
+  const assetLong = n(row.asset_mgr_positions_long);
+  const assetShort = n(row.asset_mgr_positions_short);
   return {
-    status: 'LIVE', source: 'CFTC_TFF', confirmed: true,
-    market: cols[0] || 'BITCOIN', report_date_raw: cols[2] || cols[1] || null,
-    open_interest: n(cols[7]),
-    raw_columns: cols.slice(0, 20),
-    interpretation_status: 'RAW_VERIFIED_NOT_EXECUTION_GATE',
+    status: 'LIVE', source: 'CFTC_TFF_PUBLIC_API', confirmed: true,
+    market: row.market_and_exchange_names || 'BITCOIN',
+    report_date: row.report_date_as_yyyy_mm_dd || null,
+    report_week: row.yyyy_report_week_ww || null,
+    open_interest: n(row.open_interest_all),
+    leveraged_money_long: levLong,
+    leveraged_money_short: levShort,
+    leveraged_money_net: levLong !== null && levShort !== null ? levLong - levShort : null,
+    dealer_long: dealerLong,
+    dealer_short: dealerShort,
+    dealer_net: dealerLong !== null && dealerShort !== null ? dealerLong - dealerShort : null,
+    asset_manager_long: assetLong,
+    asset_manager_short: assetShort,
+    asset_manager_net: assetLong !== null && assetShort !== null ? assetLong - assetShort : null,
+    change_open_interest: n(row.change_in_open_interest_all),
+    interpretation_status: 'VERIFIED_CONTEXT_ONLY_NOT_EXECUTION_GATE',
     checked_at: new Date().toISOString(),
   };
 }
