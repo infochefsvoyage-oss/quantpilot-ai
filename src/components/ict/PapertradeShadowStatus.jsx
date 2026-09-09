@@ -66,18 +66,30 @@ export default function PapertradeShadowStatus() {
   }
 
   const m = data?.metadata || {};
-  const hasRun = !!data;
-  const signals = m.signals || 0;
-  const paperEntries = m.paper_entries || 0;
-  const paperExits = m.paper_exits || 0;
-  const openTrades = m.open_trades || 0;
-  const closedTrades = m.closed_trades || 0;
-  const totalR = m.total_r ?? 0;
-  const winRate = m.win_rate ?? 0;
-  const meanR = m.mean_r ?? 0;
-  const medianR = m.median_r ?? 0;
+  const hasLedger = forwardTrades.length > 0;
+  const hasRun = hasLedger || !!data;
+  const ledgerOpen = forwardTrades.filter((t) => t.exit_reason === "OPEN" || !t.exit_timestamp);
+  const ledgerClosed = forwardTrades.filter((t) => t.exit_reason && t.exit_reason !== "OPEN" && t.exit_timestamp);
+  const ledgerR = ledgerClosed.map((t) => Number(t.recalculated_r ?? t.r_multiple ?? 0));
+  const ledgerWins = ledgerR.filter((r) => r > 0);
+  const ledgerLosses = ledgerR.filter((r) => r < 0);
+  const signals = hasLedger ? forwardTrades.length : (m.signals || 0);
+  const paperEntries = hasLedger ? forwardTrades.length : (m.paper_entries || 0);
+  const paperExits = hasLedger ? ledgerClosed.length : (m.paper_exits || 0);
+  const openTrades = hasLedger ? ledgerOpen.length : (m.open_trades || 0);
+  const closedTrades = hasLedger ? ledgerClosed.length : (m.closed_trades || 0);
+  const totalR = hasLedger ? ledgerR.reduce((sum, r) => sum + r, 0) : (m.total_r ?? 0);
+  const winRate = hasLedger && ledgerClosed.length ? (ledgerWins.length / ledgerClosed.length) * 100 : (m.win_rate ?? 0);
+  const meanR = hasLedger && ledgerR.length ? totalR / ledgerR.length : (m.mean_r ?? 0);
+  const medianR = hasLedger && ledgerR.length
+    ? [...ledgerR].sort((a, b) => a - b)[Math.floor(ledgerR.length / 2)]
+    : (m.median_r ?? 0);
   const maxDD = m.max_dd ?? 0;
-  const profitFactor = m.profit_factor ?? 0;
+  const profitFactor = hasLedger
+    ? (Math.abs(ledgerLosses.reduce((sum, r) => sum + r, 0)) > 0
+        ? ledgerWins.reduce((sum, r) => sum + r, 0) / Math.abs(ledgerLosses.reduce((sum, r) => sum + r, 0))
+        : ledgerWins.length ? 99 : 0)
+    : (m.profit_factor ?? 0);
   const avgWinner = m.avg_winner ?? 0;
   const avgLoser = m.avg_loser ?? 0;
   const longestWinStreak = m.longest_win_streak ?? 0;
