@@ -10,23 +10,16 @@ import {
   ShieldCheck, ShieldAlert, Lock, AlertTriangle, CheckCircle2, XCircle,
   Activity, Radio, Server, Database, Gauge, Ban, Network, Clock, AlertOctagon,
 } from "lucide-react";
+import { E2E_CHECKS, E2E_CHECK_COUNT } from "@/lib/mt5VerificationContract";
 
-const E2E_TESTS = [
-  { id: "01", name: "BRIDGE_CONNECTIVITY", expected: "PASS" },
-  { id: "02", name: "HEARTBEAT_FRESHNESS", expected: "PASS" },
-  { id: "03", name: "TICK_FRESHNESS", expected: "PASS" },
-  { id: "04", name: "ACCOUNT_SYNC", expected: "PASS" },
-  { id: "05", name: "POSITION_SYNC", expected: "PASS" },
-  { id: "06", name: "SYMBOL_SPEC", expected: "PASS" },
-  { id: "07", name: "SYMBOL_TRADE_MODE", expected: "PASS" },
-  { id: "08", name: "PRICE_VALIDITY", expected: "PASS" },
-  { id: "09", name: "STOP_LEVEL_VALIDATION", expected: "PASS" },
-  { id: "10", name: "SPREAD_GUARD", expected: "PASS" },
-  { id: "11", name: "MARGIN_GUARD", expected: "PASS" },
-  { id: "12", name: "POSITION_SIZE_CALCULATION", expected: "PASS" },
-  { id: "13", name: "GOVERNANCE_ORDER_BLOCK", expected: "REJECTED" },
-  { id: "14", name: "RECONCILIATION", expected: "PASS" },
-];
+// Single Source of Truth: the exact same 14 checks used by the MT5 verification contract.
+// Legacy GO-3 audit keys are no longer allowed to redefine the meaning of "14/14".
+const E2E_TESTS = E2E_CHECKS.map((check, index) => ({
+  id: String(index + 1).padStart(2, "0"),
+  key: check.key,
+  name: check.label.replace(/^\[\d+\]\s*/, ""),
+  expected: "PASS",
+}));
 
 const RISK_GUARDS = [
   "MAX_RISK_PER_TRADE", "MAX_DAILY_LOSS", "MAX_OPEN_POSITIONS",
