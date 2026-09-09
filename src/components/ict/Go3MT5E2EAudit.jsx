@@ -65,10 +65,16 @@ export default function Go3MT5E2EAudit() {
   const symbolSpecs = m.symbol_specs || {};
   const governance = m.governance_state || {};
   const orderSafety = m.order_safety || {};
-  const passCount = m.pass_count || 0;
-  const failCount = m.fail_count || 14 - passCount;
+
+  // Canonical pass count only. Legacy GO-3 names do not count toward 14/14.
+  const canonicalResults = E2E_TESTS.map((t) => {
+    const result = tests[t.key] || tests[`${t.id}_${t.key}`] || null;
+    return { ...t, result };
+  });
+  const passCount = canonicalResults.filter(({ result }) => result?.status === "PASS" || result?.status === "pass").length;
+  const failCount = E2E_CHECK_COUNT - passCount;
   const negPassCount = m.negative_test_pass_count || 0;
-  const allPass = passCount === 14;
+  const allPass = passCount === E2E_CHECK_COUNT && m.bridge_tier === "MT5_E2E_CONNECTED";
   const auditId = audit?.id || "—";
   const diagId = diag?.id || "—";
   const hasDiag = diag !== null;
