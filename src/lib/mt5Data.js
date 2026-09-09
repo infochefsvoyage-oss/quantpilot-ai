@@ -135,14 +135,15 @@ export const defaultMT5Connection = {
 
 // Default-Gate-Zustand: alle geschlossen, bis Backend bestätigt.
 export const defaultGateState = {
-  data_fresh: true,
-  heartbeat_ok: true,
-  account_synced: true,
-  symbol_mapped: true,
+  // Fail-closed: no execution-relevant gate may default to PASS before the backend proves it.
+  data_fresh: false,
+  heartbeat_ok: false,
+  account_synced: false,
+  symbol_mapped: false,
   risk_approved: false,
   governance_approved: false,
-  duplicate_clear: true,
-  emergency_stop_clear: true,
+  duplicate_clear: false,
+  emergency_stop_clear: false,
 };
 
 export function isLiveBlocked(conn) {
