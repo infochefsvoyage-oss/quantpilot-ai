@@ -207,7 +207,7 @@ export default function ICTPipelineMonitor() {
           Sicherheitsgatter (hard, unveränderlich)
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-          <SafetyGate label="MT5_E2E" state="TRUE" />
+          <SafetyGate label="MT5_E2E" state={data?.bridge_tier === "MT5_E2E_CONNECTED" ? "TRUE" : "FALSE"} />
           <SafetyGate label="READ_ONLY" state="TRUE" />
           <SafetyGate label="ICT_ANALYSIS" state="ENABLED" />
           <SafetyGate label="PAPER_EXEC" state="OFF" />
