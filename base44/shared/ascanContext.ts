@@ -127,7 +127,7 @@ function decodeXml(s: string) {
 function parseRssItems(xml: string) {
   const items = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
   return items.slice(0, 10).map((item) => {
-    const get = (tag: string) => decodeXml((item.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i')) || [])[1] || '').trim());
+    const get = (tag: string) => decodeXml((((item.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i')) || [])[1]) || '').trim());
     return { title: get('title') || null, url: get('link') || null, seen_at: get('pubDate') || null, source: get('source') || null };
   });
 }
