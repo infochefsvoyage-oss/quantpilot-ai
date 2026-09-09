@@ -118,9 +118,14 @@ export default async function(req) {
 
     // Backend runtime may geo-block Binance (HTTP 451). If Binance fails, mirror the
     // same USDT symbols from MEXC but preserve requested-vs-actual provenance explicitly.
-    let fallbackSource = null;
+    let binanceSourceMode = "NATIVE";
+    let binanceActualSource = "BINANCE";
+    let mexcSourceMode = "NATIVE";
+    let mexcActualSource = "MEXC";
+
     if (!binance.reachable && mexc.reachable) {
-      fallbackSource = "MEXC_FALLBACK";
+      binanceSourceMode = "MEXC_FALLBACK";
+      binanceActualSource = "MEXC";
       binance = {
         reachable: true,
         latency_ms: mexc.latency_ms,
@@ -128,12 +133,19 @@ export default async function(req) {
         error: `${binance.error} → MEXC fallback`,
       };
     } else if (!binance.reachable || !mexc.reachable) {
-      // Last resort: try CoinGecko (may also be blocked from Deno runtime)
+      // Last resort: CoinGecko, preserving provenance independently per requested exchange.
       const cg = await fetchCoinGeckoFallback();
       if (cg.reachable) {
-        fallbackSource = "COINGECKO_FALLBACK";
-        if (!binance.reachable) binance = { ...cg, error: `${binance.error} → CG fallback` };
-        if (!mexc.reachable) mexc = { ...cg, error: `${mexc.error} → CG fallback` };
+        if (!binance.reachable) {
+          binanceSourceMode = "COINGECKO_FALLBACK";
+          binanceActualSource = "COINGECKO";
+          binance = { ...cg, error: `${binance.error} → CG fallback` };
+        }
+        if (!mexc.reachable) {
+          mexcSourceMode = "COINGECKO_FALLBACK";
+          mexcActualSource = "COINGECKO";
+          mexc = { ...cg, error: `${mexc.error} → CG fallback` };
+        }
       }
     }
 
@@ -146,12 +158,12 @@ export default async function(req) {
 
     return Response.json({
       timestamp: new Date().toISOString(),
-      data_source: fallbackSource || "NATIVE",
+      data_source: binanceSourceMode === "NATIVE" && mexcSourceMode === "NATIVE" ? "NATIVE" : "MIXED_WITH_FALLBACK",
       freshness_threshold_ms: MARKET_DATA_FRESH_MS,
       binance: {
         requested_exchange: "BINANCE",
-        actual_source_exchange: fallbackSource === "MEXC_FALLBACK" ? "MEXC" : fallbackSource === "COINGECKO_FALLBACK" ? "COINGECKO" : "BINANCE",
-        source_mode: fallbackSource || "NATIVE",
+        actual_source_exchange: binanceActualSource,
+        source_mode: binanceSourceMode,
         reachable: binance.reachable,
         latency_ms: binance.latency_ms,
         rate_limit_status: binanceRateLimit,
@@ -168,8 +180,8 @@ export default async function(req) {
       },
       mexc: {
         requested_exchange: "MEXC",
-        actual_source_exchange: fallbackSource === "COINGECKO_FALLBACK" && !mexc.reachable ? "COINGECKO" : "MEXC",
-        source_mode: fallbackSource === "COINGECKO_FALLBACK" && !mexc.reachable ? "COINGECKO_FALLBACK" : "NATIVE",
+        actual_source_exchange: mexcActualSource,
+        source_mode: mexcSourceMode,
         reachable: mexc.reachable,
         latency_ms: mexc.latency_ms,
         rate_limit_status: mexcRateLimit,
