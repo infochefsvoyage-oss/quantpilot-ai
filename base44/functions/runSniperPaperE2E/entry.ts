@@ -12,6 +12,25 @@ function markPnl(trade:any, price:number) {
   return Math.round(raw * 100) / 100;
 }
 
+function provenance(s:any) {
+  return {
+    requested_exchange: s?.requested_exchange || s?.exchange || null,
+    actual_source_exchange: s?.actual_source_exchange || s?.exchange || null,
+    source_mode: s?.source_mode || 'NATIVE',
+    source_type: s?.source_type || 'LIVE_PUBLIC_REST',
+    endpoint: s?.endpoint || null,
+    fallback_reason: s?.fallback_reason || null,
+    source_timestamp_ms: s?.source_timestamp_ms || null,
+    data_age_ms: s?.data_age_ms ?? null,
+    freshness_threshold_ms: s?.freshness_threshold_ms ?? null,
+    market_observed_at: s?.market_observed_at || null,
+  };
+}
+
+function allFourGates(s:any) {
+  return [s?.gate_liquidity_sweep, s?.gate_reclaim_rejection, s?.gate_volume_confirmation, s?.gate_htf_alignment].every(Boolean);
+}
+
 export default async function(req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
@@ -21,12 +40,12 @@ export default async function(req: Request): Promise<Response> {
     const started = Date.now();
     const signals:any[] = await scanAllLiveSniperSignals();
     const confirmed = signals.filter(s => s.source_confirmed && s.data_fresh);
-    const eligible = signals.filter(s => s.decision === 'ENTER' && s.source_confirmed && s.data_fresh && s.spread_ok && s.stop_loss_present && s.ascan_score >= 75 && s.rr >= 2.5);
+    const eligible = signals.filter(s => s.decision === 'ENTER' && allFourGates(s) && s.source_confirmed && s.data_fresh && s.spread_ok && s.stop_loss_present && s.ascan_score >= 75 && s.rr >= 2.5);
 
     await base44.entities.AuditLog.create({
       event:'E2E_PAPER_SCAN_COMPLETE', category:'TRADING', severity:'INFO', actor:'sniper_e2e',
       details:`Live scan complete: ${confirmed.length}/${signals.length} sources confirmed; ${eligible.length} A+ ENTER`,
-      metadata:{ source:'LIVE_PUBLIC_REST', scanned:signals.length, confirmed:confirmed.length, eligible:eligible.length, order_send:'BLOCKED', live_execution:'BLOCKED' }
+      metadata:{ source:'LIVE_PUBLIC_REST', scanned:signals.length, confirmed:confirmed.length, eligible:eligible.length, provenance:signals.map(s => ({ symbol:s.symbol, exchange:s.exchange, ...provenance(s) })), order_send:'BLOCKED', live_execution:'BLOCKED' }
     });
 
     // Position → PnL reconciliation for any existing Sniper paper positions.
@@ -35,8 +54,8 @@ export default async function(req: Request): Promise<Response> {
     const reconciled:any[] = [];
     for (const t of openPaper) {
       const s = signals.find(x => x.symbol === t.symbol && String(x.exchange).toLowerCase() === String(t.exchange).toLowerCase());
-      if (!s?.source_confirmed || !s.entry_price) continue;
-      const current = Number(s.entry_price);
+      if (!s?.source_confirmed || !s?.data_fresh || !s.current_market_price) continue;
+      const current = Number(s.current_market_price);
       const pnl = markPnl(t, current);
       let status = 'open';
       let closeReason:any = undefined;
@@ -50,7 +69,7 @@ export default async function(req: Request): Promise<Response> {
       const patch:any = { current_price:current, unrealized_pnl:status === 'open' ? pnl : 0, status };
       if (status === 'closed') { patch.realized_pnl=realized; patch.closed_at=new Date().toISOString(); patch.close_reason=closeReason; }
       await base44.entities.Trade.update(t.id, patch);
-      reconciled.push({ trade_id:t.id, symbol:t.symbol, current_price:current, unrealized_pnl:pnl, status, close_reason:closeReason || null });
+      reconciled.push({ trade_id:t.id, symbol:t.symbol, current_price:current, unrealized_pnl:pnl, status, close_reason:closeReason || null, provenance:provenance(s) });
     }
 
     if (reconciled.length) {
@@ -66,7 +85,7 @@ export default async function(req: Request): Promise<Response> {
       await base44.entities.AuditLog.create({
         event:'E2E_PAPER_NO_TRADE', category:'RISK', severity:'INFO', actor:'sniper_e2e',
         details:'E2E stopped safely at A+ gate: no live signal has all 4 gates confirmed',
-        metadata:{ decisions:signals.map(s => ({ exchange:s.exchange, symbol:s.symbol, decision:s.decision, score:s.ascan_score, rr:s.rr, data_fresh:s.data_fresh })), order_send:'BLOCKED', live_execution:'BLOCKED' }
+        metadata:{ decisions:signals.map(s => ({ exchange:s.exchange, symbol:s.symbol, decision:s.decision, score:s.ascan_score, rr:s.rr, data_fresh:s.data_fresh, all_four_gates:allFourGates(s), ...provenance(s) })), order_send:'BLOCKED', live_execution:'BLOCKED' }
       });
       return Response.json({
         status:'NO_TRADE', verdict:'SAFE_BLOCK_AT_A_PLUS_GATE',
@@ -84,7 +103,7 @@ export default async function(req: Request): Promise<Response> {
     await base44.entities.AuditLog.create({
       event:'E2E_PAPER_RISK_GATE', category:'RISK', severity:risk.pass ? 'INFO' : 'WARNING', actor:'sniper_e2e',
       details:`E2E Risk Gate ${risk.pass ? 'PASS' : 'FAIL'} — ${risk.reason}`,
-      metadata:{ risk, paper_test_equity:PAPER_TEST_EQUITY, equity_type:'INTERNAL_NOMINAL_PAPER_EQUITY', order_send:'BLOCKED', live_execution:'BLOCKED' }
+      metadata:{ risk, provenance:provenance(s), paper_test_equity:PAPER_TEST_EQUITY, equity_type:'INTERNAL_NOMINAL_PAPER_EQUITY', order_send:'BLOCKED', live_execution:'BLOCKED' }
     });
     if (!risk.pass) {
       return Response.json({ status:'RISK_BLOCKED', verdict:'SAFE_BLOCK_AT_RISK_GATE', stages:{ live_exchange:'PASS', scanner:'PASS', a_plus_4_gates:'PASS', risk_gate:'FAIL', paper_order:'NOT_CREATED', position_pnl:reconciled.length ? 'PASS' : 'NO_OPEN_POSITION', audit_log:'PASS' }, signal:s, risk_gate:risk, reconciled, order_send:'BLOCKED', live_execution:'BLOCKED' });
@@ -93,7 +112,7 @@ export default async function(req: Request): Promise<Response> {
     const fingerprint = `SNIPER:${s.exchange}:${s.symbol}:${s.side}:${s.signal_candle_close_time}`;
     const duplicate = trades.some((t:any) => t.mode === 'PAPER' && t.status === 'open' && t.signal_id === fingerprint);
     if (duplicate) {
-      await base44.entities.AuditLog.create({ event:'E2E_PAPER_DUPLICATE_BLOCKED', category:'RISK', severity:'INFO', actor:'sniper_e2e', details:`Duplicate PAPER signal blocked: ${fingerprint}`, metadata:{ fingerprint, order_send:'BLOCKED', live_execution:'BLOCKED' } });
+      await base44.entities.AuditLog.create({ event:'E2E_PAPER_DUPLICATE_BLOCKED', category:'RISK', severity:'INFO', actor:'sniper_e2e', details:`Duplicate PAPER signal blocked: ${fingerprint}`, metadata:{ fingerprint, provenance:provenance(s), order_send:'BLOCKED', live_execution:'BLOCKED' } });
       return Response.json({ status:'DUPLICATE_BLOCKED', verdict:'SAFE_DUPLICATE_BLOCK', stages:{ live_exchange:'PASS', scanner:'PASS', a_plus_4_gates:'PASS', risk_gate:'PASS', paper_order:'DUPLICATE_BLOCKED', position_pnl:reconciled.length ? 'PASS' : 'NO_OPEN_POSITION', audit_log:'PASS' }, signal:s, risk_gate:risk, order_send:'BLOCKED', live_execution:'BLOCKED' });
     }
 
@@ -108,13 +127,13 @@ export default async function(req: Request): Promise<Response> {
     await base44.entities.AuditLog.create({
       event:'E2E_PAPER_ORDER_CREATED', category:'TRADING', severity:'INFO', actor:'sniper_e2e',
       details:`Internal PAPER ${s.symbol} ${s.side} created after live A+ + risk gate PASS`,
-      metadata:{ trade_id:trade.id, fingerprint, source:'LIVE_PUBLIC_REST', entry:s.entry_price, stop_loss:s.stop_loss, take_profit:s.take_profit_1, size, risk_amount:riskAmount, paper_test_equity:PAPER_TEST_EQUITY, order_send:'BLOCKED', live_execution:'BLOCKED' }
+      metadata:{ trade_id:trade.id, fingerprint, source:'LIVE_PUBLIC_REST', provenance:provenance(s), entry:s.entry_price, mark_price:s.current_market_price, stop_loss:s.stop_loss, take_profit:s.take_profit_1, size, risk_amount:riskAmount, paper_test_equity:PAPER_TEST_EQUITY, order_send:'BLOCKED', live_execution:'BLOCKED' }
     });
 
     return Response.json({
       status:'PAPER_ORDER_CREATED', verdict:'E2E_PAPER_PASS_TO_OPEN_POSITION',
       stages:{ live_exchange:'PASS', scanner:'PASS', a_plus_4_gates:'PASS', risk_gate:'PASS', paper_order:'PASS', position_pnl:'OPEN_ZERO_AT_ENTRY', audit_log:'PASS' },
-      trade_id:trade.id, signal:s, risk_gate:risk, reconciled, execution_mode:'INTERNAL_PAPER_ONLY', paper_test_equity:PAPER_TEST_EQUITY,
+      trade_id:trade.id, signal:s, provenance:provenance(s), risk_gate:risk, reconciled, execution_mode:'INTERNAL_PAPER_ONLY', paper_test_equity:PAPER_TEST_EQUITY,
       order_send:'BLOCKED', live_execution:'BLOCKED', latency_ms:Date.now()-started
     });
   } catch(e:any) {
