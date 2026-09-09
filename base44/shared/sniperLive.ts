@@ -18,7 +18,24 @@ const BINANCE_BASES = [
 ];
 const MEXC_BASES = ["https://api.mexc.com"];
 const FETCH_TIMEOUT_MS = 8000;
-const FRESH_MS = 180000;
+export const MARKET_DATA_FRESH_MS = 180000;
+
+function timestampMs(v: any): number {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return n < 1e12 ? n * 1000 : n;
+}
+
+export function marketFreshness(sourceTimestamp: any, now = Date.now()) {
+  const ts = timestampMs(sourceTimestamp);
+  const ageMs = ts > 0 ? now - ts : Number.POSITIVE_INFINITY;
+  return {
+    source_timestamp_ms: ts || null,
+    data_age_ms: Number.isFinite(ageMs) ? ageMs : null,
+    data_fresh: ts > 0 && ageMs >= 0 && ageMs <= MARKET_DATA_FRESH_MS,
+    freshness_threshold_ms: MARKET_DATA_FRESH_MS,
+  };
+}
 
 function num(v: any): number {
   const n = Number(v);
@@ -42,7 +59,7 @@ async function getJson(url: string, timeoutMs = FETCH_TIMEOUT_MS) {
   }
 }
 
-async function fetchFromBases(exchange: string, path: string) {
+async function fetchFromExchange(exchange: string, path: string) {
   const bases = exchange === "BINANCE" ? BINANCE_BASES : MEXC_BASES;
   let last: any = { ok: false, status: 0, json: null, error: "NO_ENDPOINT" };
   for (const base of bases) {
@@ -50,6 +67,65 @@ async function fetchFromBases(exchange: string, path: string) {
     if (last.ok) return { ...last, endpoint: base };
   }
   return last;
+}
+
+async function fetchMarketBundle(requestedExchange: string, symbol: string) {
+  const paths = {
+    r1: `/api/v3/klines?symbol=${symbol}&interval=1m&limit=120`,
+    r15: `/api/v3/klines?symbol=${symbol}&interval=15m&limit=80`,
+    r4: `/api/v3/klines?symbol=${symbol}&interval=4h&limit=80`,
+    book: `/api/v3/ticker/bookTicker?symbol=${symbol}`,
+  };
+
+  const fetchBundle = async (exchange: string) => {
+    const [r1, r15, r4, book] = await Promise.all([
+      fetchFromExchange(exchange, paths.r1),
+      fetchFromExchange(exchange, paths.r15),
+      fetchFromExchange(exchange, paths.r4),
+      fetchFromExchange(exchange, paths.book),
+    ]);
+    return { r1, r15, r4, book };
+  };
+
+  const native = await fetchBundle(requestedExchange);
+  const nativeOk = Object.values(native).every((r: any) => r?.ok);
+  if (nativeOk) {
+    return {
+      ...native,
+      requested_exchange: requestedExchange,
+      actual_source_exchange: requestedExchange,
+      source_mode: "NATIVE",
+      fallback_reason: null,
+    };
+  }
+
+  // Binance is geo-blocked in some Base44 runtimes. Fail over the WHOLE bundle to MEXC,
+  // never individual legs, so candles/book are exchange-consistent and auditable.
+  if (requestedExchange === "BINANCE") {
+    const fallback = await fetchBundle("MEXC");
+    const fallbackOk = Object.values(fallback).every((r: any) => r?.ok);
+    if (fallbackOk) {
+      const failedNative = Object.entries(native)
+        .filter(([, r]: any) => !r?.ok)
+        .map(([k, r]: any) => `${k}:${r?.status || 0}`)
+        .join(",");
+      return {
+        ...fallback,
+        requested_exchange: requestedExchange,
+        actual_source_exchange: "MEXC",
+        source_mode: "MEXC_FALLBACK",
+        fallback_reason: `BINANCE_NATIVE_FAILED(${failedNative || "UNKNOWN"})`,
+      };
+    }
+  }
+
+  return {
+    ...native,
+    requested_exchange: requestedExchange,
+    actual_source_exchange: requestedExchange,
+    source_mode: "NATIVE_FAILED",
+    fallback_reason: null,
+  };
 }
 
 function normalizeKlines(raw: any[]): any[] {
@@ -192,12 +268,8 @@ function levels(k1: any[], side: string, entry: number) {
 }
 
 export async function scanLiveSniperSymbol(exchange: string, symbol: string) {
-  const [r1, r15, r4, book] = await Promise.all([
-    fetchFromBases(exchange, `/api/v3/klines?symbol=${symbol}&interval=1m&limit=120`),
-    fetchFromBases(exchange, `/api/v3/klines?symbol=${symbol}&interval=15m&limit=80`),
-    fetchFromBases(exchange, `/api/v3/klines?symbol=${symbol}&interval=4h&limit=80`),
-    fetchFromBases(exchange, `/api/v3/ticker/bookTicker?symbol=${symbol}`),
-  ]);
+  const bundle = await fetchMarketBundle(exchange, symbol);
+  const { r1, r15, r4, book } = bundle;
 
   if (!r1.ok || !r15.ok || !r4.ok || !book.ok) {
     return {
@@ -213,6 +285,10 @@ export async function scanLiveSniperSymbol(exchange: string, symbol: string) {
       htf_bias: "NEUTRAL",
       source_type: "LIVE_PUBLIC_REST",
       source_confirmed: false,
+      requested_exchange: bundle.requested_exchange,
+      actual_source_exchange: bundle.actual_source_exchange,
+      source_mode: bundle.source_mode,
+      fallback_reason: bundle.fallback_reason,
       error: `MARKET_DATA_FAILED 1m=${r1.status} 15m=${r15.status} 4h=${r4.status} book=${book.status}`,
       created_date: new Date().toISOString(),
     };
@@ -226,7 +302,10 @@ export async function scanLiveSniperSymbol(exchange: string, symbol: string) {
       id: `${exchange}-${symbol}`, exchange, symbol, decision: "NO_TRADE", ascan_score: 0, rr: 0,
       gate_liquidity_sweep: false, gate_reclaim_rejection: false, gate_volume_confirmation: false, gate_htf_alignment: false,
       spread_ok: false, funding_ok: false, data_fresh: false, stop_loss_present: false, htf_bias: "NEUTRAL",
-      source_type: "LIVE_PUBLIC_REST", source_confirmed: false, error: "INSUFFICIENT_CANDLES", created_date: new Date().toISOString(),
+      source_type: "LIVE_PUBLIC_REST", source_confirmed: false,
+      requested_exchange: bundle.requested_exchange, actual_source_exchange: bundle.actual_source_exchange,
+      source_mode: bundle.source_mode, fallback_reason: bundle.fallback_reason,
+      error: "INSUFFICIENT_CANDLES", created_date: new Date().toISOString(),
     };
   }
 
@@ -237,8 +316,8 @@ export async function scanLiveSniperSymbol(exchange: string, symbol: string) {
   const ask = num(book.json?.askPrice);
   const entry = setup.side === "LONG" ? (ask || lastClosed.close) : (bid || lastClosed.close);
   const spreadPct = bid > 0 && ask > 0 ? ((ask - bid) / ((ask + bid) / 2)) * 100 : 999;
-  const dataAgeMs = Date.now() - lastClosed.close_time;
-  const dataFresh = dataAgeMs >= 0 && dataAgeMs <= FRESH_MS;
+  const freshness = marketFreshness(lastClosed.close_time);
+  const dataFresh = freshness.data_fresh;
   const spreadOk = spreadPct <= 0.08;
   const lv = levels(k1, setup.side, entry);
   const ict = deriveICT(k1, setup.side, entry);
@@ -271,10 +350,18 @@ export async function scanLiveSniperSymbol(exchange: string, symbol: string) {
     take_profit_2: lv.tp2,
     take_profit_3: lv.tp3,
     spread_pct: Math.round(spreadPct * 10000) / 10000,
-    data_age_ms: dataAgeMs,
+    data_age_ms: freshness.data_age_ms,
+    freshness_threshold_ms: freshness.freshness_threshold_ms,
+    source_timestamp_ms: freshness.source_timestamp_ms,
     signal_candle_close_time: new Date(lastClosed.close_time).toISOString(),
+    current_market_price: bid > 0 && ask > 0 ? (bid + ask) / 2 : entry,
+    market_observed_at: new Date().toISOString(),
     source_type: "LIVE_PUBLIC_REST",
     source_confirmed: true,
+    requested_exchange: bundle.requested_exchange,
+    actual_source_exchange: bundle.actual_source_exchange,
+    source_mode: bundle.source_mode,
+    fallback_reason: bundle.fallback_reason,
     endpoint: r1.endpoint,
     latency_ms: Math.max(r1.latency_ms || 0, r15.latency_ms || 0, r4.latency_ms || 0, book.latency_ms || 0),
     created_date: new Date().toISOString(),
