@@ -173,7 +173,7 @@ export default function Dashboard() {
 
       {/* PnL Übersicht */}
       <div className="mt-4">
-        <PanelCard title="PAPER Portfolio · Trade Entity" action={<span className="text-xs text-muted-foreground">10s Auto-Sync · kein Live-Konto</span>}>
+        <PanelCard title="Exchange PAPER Portfolio · Trade Entity" action={<span className="text-xs text-muted-foreground">10s Auto-Sync · getrennt vom MT5 ForwardTrade Ledger</span>}>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <PnlMetric
               label="Gesamt-PnL"
@@ -371,7 +371,7 @@ export default function Dashboard() {
 
       {/* Offene Positionen */}
       <div className="mt-4">
-        <PanelCard title="Offene PAPER Positionen" action={<span className="font-mono text-xs text-muted-foreground">Trade Entity · 10s Auto-Sync</span>}>
+        <PanelCard title="Offene Exchange-PAPER Positionen" action={<span className="font-mono text-xs text-muted-foreground">Trade Entity · MT5 Paper separat in ForwardTrade</span>}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
