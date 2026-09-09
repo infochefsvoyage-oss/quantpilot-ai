@@ -47,17 +47,20 @@ function classify(status: number, json: any, networkError?: string | null) {
   return { status: 'API_ERROR', auth_valid: null, quota_state: 'UNKNOWN' };
 }
 
-async function openaiGet(path: string, apiKey: string) {
+async function openaiRequest(path: string, apiKey: string, init: RequestInit = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   const started = Date.now();
   try {
     const res = await fetch(`${OPENAI_BASE}${path}`, {
-      method: 'GET',
+      ...init,
+      method: init.method || 'GET',
       signal: ctrl.signal,
       headers: {
         Authorization: `Bearer ${apiKey}`,
         Accept: 'application/json',
+        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(init.headers || {}),
       },
     });
     const text = await res.text();
@@ -120,6 +123,9 @@ export default async function(req: Request): Promise<Response> {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const apiKey = secrets.get('OPENAI_API_KEY');
+    const healthModel = secrets.get('OPENAI_HEALTH_MODEL');
+    const body = await req.json().catch(() => ({}));
+    const activeProbeRequested = body?.active_probe === true;
     const checkedAt = new Date().toISOString();
 
     if (!apiKey) {
@@ -137,6 +143,8 @@ export default async function(req: Request): Promise<Response> {
         checked_at: checkedAt,
         latency_ms: Date.now() - started,
         monitor_mode: 'READ_ONLY_MODELS_PROBE',
+        active_probe_requested: activeProbeRequested,
+        active_probe_available: !!healthModel,
         governance_effect: 'AI_DEGRADED',
         order_send: 'BLOCKED',
         live_execution: 'BLOCKED',
@@ -148,7 +156,27 @@ export default async function(req: Request): Promise<Response> {
     // GET /models is deliberately read-only and avoids generating billable model output.
     // It verifies network reachability and API-key authentication. Quota exhaustion can only
     // be proven when OpenAI returns the corresponding error; this check never guesses quota.
-    const probe = await openaiGet('/models', apiKey);
+    const authProbe = await openaiRequest('/models', apiKey);
+    let probe = authProbe;
+    let monitorMode = 'READ_ONLY_MODELS_PROBE';
+    let activeProbePerformed = false;
+
+    // Optional manual deep probe: proves that an actual model request can be accepted and
+    // therefore surfaces quota/spend-limit errors. It is never run unless explicitly requested
+    // AND OPENAI_HEALTH_MODEL is configured server-side.
+    if (authProbe.ok && activeProbeRequested && healthModel) {
+      probe = await openaiRequest('/responses', apiKey, {
+        method: 'POST',
+        body: JSON.stringify({
+          model: healthModel,
+          input: 'healthcheck',
+          max_output_tokens: 1,
+        }),
+      });
+      monitorMode = 'ACTIVE_RESPONSES_PROBE';
+      activeProbePerformed = true;
+    }
+
     const cls = classify(probe.http_status, probe.json, probe.network_error);
     const safeErr = safeErrorPayload(probe.json);
 
@@ -156,8 +184,8 @@ export default async function(req: Request): Promise<Response> {
       status: cls.status,
       configured: true,
       api_reachable: probe.http_status > 0,
-      auth_valid: cls.auth_valid,
-      quota_state: cls.quota_state,
+      auth_valid: authProbe.ok ? true : cls.auth_valid,
+      quota_state: activeProbePerformed ? cls.quota_state : 'UNKNOWN',
       http_status: probe.http_status || null,
       ...safeErr,
       request_id: probe.request_id,
@@ -165,7 +193,10 @@ export default async function(req: Request): Promise<Response> {
       network_error: probe.network_error,
       checked_at: checkedAt,
       latency_ms: probe.latency_ms,
-      monitor_mode: 'READ_ONLY_MODELS_PROBE',
+      monitor_mode: monitorMode,
+      active_probe_requested: activeProbeRequested,
+      active_probe_available: !!healthModel,
+      active_probe_performed: activeProbePerformed,
       governance_effect: cls.status === 'CONNECTED' ? 'NONE' : 'AI_DEGRADED',
       order_send: 'BLOCKED',
       live_execution: 'BLOCKED',
