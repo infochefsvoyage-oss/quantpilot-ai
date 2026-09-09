@@ -1,8 +1,10 @@
 // QuantPilot — Fetch live market data from Binance and MEXC public APIs.
 // No API key required for public ticker endpoints.
-// Returns: connection status, ticker prices (BTC, ETH, SOL), rate-limit health.
+// Returns: connection status, ticker prices, provenance and unified freshness.
 
-const SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT"];
+import { marketFreshness, MARKET_DATA_FRESH_MS } from '../../shared/sniperLive.ts';
+
+const SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "DOGEUSDT"];
 
 const BINANCE_ENDPOINTS = [
   "https://data-api.binance.vision",
@@ -13,8 +15,8 @@ const BINANCE_ENDPOINTS = [
 const MEXC_API = "https://api.mexc.com";
 
 // Fallback: CoinGecko public API (no key, not geo-blocked from backend runtime)
-const COINGECKO_MARKETS = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,solana";
-const COINGECKO_ID_MAP = { BTCUSDT: "bitcoin", ETHUSDT: "ethereum", SOLUSDT: "solana" };
+const COINGECKO_MARKETS = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,solana,dogecoin";
+const COINGECKO_ID_MAP = { BTCUSDT: "bitcoin", ETHUSDT: "ethereum", SOLUSDT: "solana", DOGEUSDT: "dogecoin" };
 
 async function fetchWithTimeout(url, timeoutMs = 8000, extraHeaders: Record<string, string> = {}) {
   const ctrl = new AbortController();
@@ -53,7 +55,9 @@ async function fetchBinanceTickers() {
       low_24h: parseFloat(t.lowPrice),
       volume_24h: parseFloat(t.volume),
       quote_volume_24h: parseFloat(t.quoteVolume),
-    }));
+      source_timestamp_ms: Number(t.closeTime || 0) || null,
+    }))
+    .map((t) => ({ ...t, ...marketFreshness(t.source_timestamp_ms) }));
   return { reachable: true, latency_ms: r.latency_ms, tickers };
 }
 
@@ -77,9 +81,11 @@ async function fetchCoinGeckoFallback() {
         low_24h: c.low_24h ?? 0,
         volume_24h: c.total_volume ?? 0,
         quote_volume_24h: (c.total_volume ?? 0) * (c.current_price ?? 0),
+        source_timestamp_ms: c.last_updated ? Date.parse(c.last_updated) : null,
       };
     })
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((t) => ({ ...t, ...marketFreshness(t.source_timestamp_ms) }));
   return { reachable: true, latency_ms: r.latency_ms, tickers, source: "coingecko" };
 }
 
@@ -99,7 +105,9 @@ async function fetchMexcTickers() {
       low_24h: parseFloat(t.lowPrice),
       volume_24h: parseFloat(t.volume),
       quote_volume_24h: parseFloat(t.quoteVolume),
-    }));
+      source_timestamp_ms: Number(t.closeTime || 0) || null,
+    }))
+    .map((t) => ({ ...t, ...marketFreshness(t.source_timestamp_ms) }));
   return { reachable: true, latency_ms: r.latency_ms, tickers };
 }
 
@@ -108,22 +116,22 @@ export default async function(req) {
     // Public market-data endpoint only: no account data, no secrets, no order capability.
     let [binance, mexc] = await Promise.all([fetchBinanceTickers(), fetchMexcTickers()]);
 
-    // Backend runtime (Deno) is geo-blocked for Binance (HTTP 451) and CoinGecko (403).
-    // MEXC is reachable. If Binance fails, mirror MEXC tickers (same BTC/ETH/SOL USDT assets).
+    // Backend runtime may geo-block Binance (HTTP 451). If Binance fails, mirror the
+    // same USDT symbols from MEXC but preserve requested-vs-actual provenance explicitly.
     let fallbackSource = null;
     if (!binance.reachable && mexc.reachable) {
-      fallbackSource = "mexc_mirror";
+      fallbackSource = "MEXC_FALLBACK";
       binance = {
         reachable: true,
         latency_ms: mexc.latency_ms,
         tickers: mexc.tickers,
-        error: `${binance.error} → MEXC mirror`,
+        error: `${binance.error} → MEXC fallback`,
       };
     } else if (!binance.reachable || !mexc.reachable) {
       // Last resort: try CoinGecko (may also be blocked from Deno runtime)
       const cg = await fetchCoinGeckoFallback();
       if (cg.reachable) {
-        fallbackSource = "coingecko";
+        fallbackSource = "COINGECKO_FALLBACK";
         if (!binance.reachable) binance = { ...cg, error: `${binance.error} → CG fallback` };
         if (!mexc.reachable) mexc = { ...cg, error: `${mexc.error} → CG fallback` };
       }
@@ -132,11 +140,18 @@ export default async function(req) {
     // Rate-limit heuristic: if latency > 3000ms, flag as THROTTLED
     const binanceRateLimit = binance.latency_ms > 3000 ? "THROTTLED" : "OK";
     const mexcRateLimit = mexc.latency_ms > 3000 ? "THROTTLED" : "OK";
+    const aggregateFreshness = (tickers:any[]) => tickers.length > 0 && tickers.every((t:any) => t.data_fresh === true);
+    const binanceFresh = aggregateFreshness(binance.tickers);
+    const mexcFresh = aggregateFreshness(mexc.tickers);
 
     return Response.json({
       timestamp: new Date().toISOString(),
-      data_source: fallbackSource || "native",
+      data_source: fallbackSource || "NATIVE",
+      freshness_threshold_ms: MARKET_DATA_FRESH_MS,
       binance: {
+        requested_exchange: "BINANCE",
+        actual_source_exchange: fallbackSource === "MEXC_FALLBACK" ? "MEXC" : fallbackSource === "COINGECKO_FALLBACK" ? "COINGECKO" : "BINANCE",
+        source_mode: fallbackSource || "NATIVE",
         reachable: binance.reachable,
         latency_ms: binance.latency_ms,
         rate_limit_status: binanceRateLimit,
@@ -148,9 +163,13 @@ export default async function(req) {
         account_readable: false,
         auth_latency_ms: null,
         auth_environment: null,
-        ticker_freshness: binance.reachable && binance.tickers.length > 0 ? "FRESH" : "STALE",
+        ticker_freshness: binanceFresh ? "FRESH" : "STALE",
+        data_fresh: binanceFresh,
       },
       mexc: {
+        requested_exchange: "MEXC",
+        actual_source_exchange: fallbackSource === "COINGECKO_FALLBACK" && !mexc.reachable ? "COINGECKO" : "MEXC",
+        source_mode: fallbackSource === "COINGECKO_FALLBACK" && !mexc.reachable ? "COINGECKO_FALLBACK" : "NATIVE",
         reachable: mexc.reachable,
         latency_ms: mexc.latency_ms,
         rate_limit_status: mexcRateLimit,
@@ -161,7 +180,8 @@ export default async function(req) {
         api_key_configured: null,
         account_readable: false,
         auth_latency_ms: null,
-        ticker_freshness: mexc.reachable && mexc.tickers.length > 0 ? "FRESH" : "STALE",
+        ticker_freshness: mexcFresh ? "FRESH" : "STALE",
+        data_fresh: mexcFresh,
       },
     });
   } catch (error) {
