@@ -24,6 +24,7 @@ import ProfitabilityMonitor from "@/components/ict/ProfitabilityMonitor";
 import GoLiveGateTracker from "@/components/ict/GoLiveGateTracker";
 import Go3MT5E2EAudit from "@/components/ict/Go3MT5E2EAudit";
 import ArbMeasurementProgress from "@/components/arb/ArbMeasurementProgress";
+import AscanContextPanel from "@/components/AscanContextPanel";
 
 function DashboardExchangePrices({ name, data, loading, callError }) {
   const tickers = Array.isArray(data?.tickers) ? data.tickers : [];
@@ -250,6 +251,11 @@ export default function Dashboard() {
             </div>
           </div>
         </PanelCard>
+      </div>
+
+      {/* ASCAN Context Intelligence — additive/read-only */}
+      <div className="mt-4">
+        <AscanContextPanel />
       </div>
 
       {/* Runtime Status + Governance Pending */}
