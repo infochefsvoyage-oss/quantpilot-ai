@@ -2,12 +2,13 @@
 // IMPORTANT: This module never changes the 4-Gate A+ execution decision.
 // Sources: MEXC Futures derivatives, FRED macro, CFTC COT, GDELT news, optional Dune on-chain.
 
-const TIMEOUT = 10000;
+const TIMEOUT = 20000;
 const MEXC_CONTRACT = 'https://contract.mexc.com';
 const CFTC_TFF = 'https://www.cftc.gov/dea/newcot/FinFutWk.txt';
 const FRED_DFF = 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=DFF';
 const FRED_DGS10 = 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS10';
 const GDELT = 'https://api.gdeltproject.org/api/v2/doc/doc';
+const GOOGLE_NEWS_RSS = 'https://news.google.com/rss/search';
 
 function env(name: string): string | null {
   try {
@@ -119,16 +120,40 @@ export async function fetchCotBitcoin() {
   };
 }
 
+function decodeXml(s: string) {
+  return s.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+}
+
+function parseRssItems(xml: string) {
+  const items = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
+  return items.slice(0, 10).map((item) => {
+    const get = (tag: string) => decodeXml((item.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i')) || [])[1] || '').trim());
+    return { title: get('title') || null, url: get('link') || null, seen_at: get('pubDate') || null, source: get('source') || null };
+  });
+}
+
 export async function fetchNewsRisk() {
   const q = encodeURIComponent('(bitcoin OR ethereum OR crypto) (fed OR inflation OR cpi OR jobs OR sec OR hack OR liquidation)');
-  const r = await fetchJson(`${GDELT}?query=${q}&mode=ArtList&maxrecords=10&format=json`);
-  if (!r.ok) return { status: 'UNAVAILABLE', source: 'GDELT_DOC_2', confirmed: false, http: r.status, fail_closed: true };
-  const arts = Array.isArray(r.json?.articles) ? r.json.articles : [];
+  const gdelt = await fetchJson(`${GDELT}?query=${q}&mode=ArtList&maxrecords=10&format=json`);
+  if (gdelt.ok) {
+    const arts = Array.isArray(gdelt.json?.articles) ? gdelt.json.articles : [];
+    return {
+      status: 'LIVE', source: 'GDELT_DOC_2', confirmed: true,
+      article_count: arts.length,
+      headlines: arts.slice(0, 8).map((a: any) => ({ title: a.title || null, domain: a.domain || null, seen_at: a.seendate || null, url: a.url || null })),
+      news_clear: null,
+      checked_at: new Date().toISOString(),
+    };
+  }
+  const rssQ = encodeURIComponent('bitcoin OR ethereum crypto fed inflation SEC hack liquidation');
+  const rss = await fetchText(`${GOOGLE_NEWS_RSS}?q=${rssQ}&hl=en-US&gl=US&ceid=US:en`);
+  if (!rss.ok) return { status: 'UNAVAILABLE', source: 'GDELT_DOC_2+GOOGLE_NEWS_RSS', confirmed: false, gdelt_http: gdelt.status, rss_http: rss.status, fail_closed: true };
+  const headlines = parseRssItems(rss.text);
   return {
-    status: 'LIVE', source: 'GDELT_DOC_2', confirmed: true,
-    article_count: arts.length,
-    headlines: arts.slice(0, 8).map((a: any) => ({ title: a.title || null, domain: a.domain || null, seen_at: a.seendate || null, url: a.url || null })),
-    news_clear: null, // intentionally not inferred as a trading gate from headline count alone
+    status: 'LIVE_FALLBACK', source: 'GOOGLE_NEWS_RSS', confirmed: true,
+    primary_source_failed: 'GDELT_DOC_2', primary_http: gdelt.status,
+    article_count: headlines.length, headlines,
+    news_clear: null,
     checked_at: new Date().toISOString(),
   };
 }
