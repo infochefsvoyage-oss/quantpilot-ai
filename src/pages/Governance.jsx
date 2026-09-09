@@ -1,14 +1,32 @@
-import React, { useState } from "react";
-import { Lock, ShieldCheck, XCircle, Clock, ShieldAlert } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { Lock, ShieldCheck, XCircle, Clock, ShieldAlert, RefreshCw, Cpu } from "lucide-react";
 import {
   pendingGovernance, governanceActionLabels, auditLogs,
 } from "@/lib/quantData";
 import PanelCard from "@/components/PanelCard";
 import StatusBadge from "@/components/StatusBadge";
+import { base44 } from "@/api/base44Client";
 
 export default function Governance() {
   const [actions, setActions] = useState(pendingGovernance);
   const [pin, setPin] = useState("");
+  const [gptHealth, setGptHealth] = useState({ status: "LOADING", checked_at: null, auth_valid: null, quota_state: "UNKNOWN", latency_ms: null, governance_effect: "AI_DEGRADED" });
+  const [gptLoading, setGptLoading] = useState(false);
+
+  const loadGptHealth = async () => {
+    setGptLoading(true);
+    try {
+      const raw = await base44.functions.invoke("gptApiHealthCheck", {});
+      const res = raw?.data || raw;
+      setGptHealth(res || { status: "MONITOR_ERROR", governance_effect: "AI_DEGRADED" });
+    } catch (e) {
+      setGptHealth({ status: "MONITOR_ERROR", checked_at: new Date().toISOString(), auth_valid: null, quota_state: "UNKNOWN", latency_ms: null, governance_effect: "AI_DEGRADED", error: e?.message || "GPT_HEALTHCHECK_FAILED" });
+    } finally {
+      setGptLoading(false);
+    }
+  };
+
+  useEffect(() => { loadGptHealth(); }, []);
 
   const handleApprove = (id) => {
     setActions((prev) => prev.map((a) => (a.id === id ? { ...a, status: "APPROVED" } : a)));
@@ -39,8 +57,38 @@ export default function Governance() {
         </p>
       </div>
 
+      {/* GPT API Monitor */}
+      <PanelCard title="GPT API Monitor · ULF">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-md ${gptHealth.status === "CONNECTED" ? "bg-profit/10" : "bg-warning/10"}`}>
+              <Cpu className={`h-5 w-5 ${gptHealth.status === "CONNECTED" ? "text-profit" : "text-warning"}`} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-foreground">OpenAI / GPT Health</span>
+                <StatusBadge status={gptHealth.status || "UNKNOWN"} color={gptHealth.status === "CONNECTED" ? "profit" : gptHealth.status === "LOADING" ? "muted" : "warning"} />
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                Auth: {gptHealth.auth_valid === true ? "VALID" : gptHealth.auth_valid === false ? "INVALID" : "UNKNOWN"}
+                {` · Quota: ${gptHealth.quota_state || "UNKNOWN"}`}
+                {gptHealth.latency_ms != null ? ` · ${gptHealth.latency_ms} ms` : ""}
+                {gptHealth.checked_at ? ` · geprüft ${new Date(gptHealth.checked_at).toLocaleString("de-DE")}` : ""}
+              </div>
+            </div>
+          </div>
+          <button onClick={loadGptHealth} disabled={gptLoading} className="flex items-center gap-2 rounded-md border border-border bg-secondary px-3 py-2 text-xs font-semibold text-foreground disabled:opacity-50">
+            <RefreshCw className={`h-3.5 w-3.5 ${gptLoading ? "animate-spin" : ""}`} />
+            GPT prüfen
+          </button>
+        </div>
+        <div className={`mt-3 rounded-md border px-3 py-2 text-xs ${gptHealth.status === "CONNECTED" ? "border-profit/30 bg-profit/5 text-profit" : "border-warning/30 bg-warning/5 text-warning"}`}>
+          ULF-Zustand: <b>{gptHealth.status === "CONNECTED" ? "AI_HEALTHY" : "AI_DEGRADED"}</b> · GPT-Status verändert weder Trading-Gates noch Governance-Locks. LIVE Execution bleibt BLOCKED.
+        </div>
+      </PanelCard>
+
       {/* Pending Actions */}
-      <PanelCard title={`Pending Actions (${actions.filter((a) => a.status === "PENDING").length})`}>
+      <PanelCard title={`Pending Actions (${actions.filter((a) => a.status === "PENDING").length})`} className="mt-4">
         <div className="space-y-4">
           {actions.map((a) => (
             <div key={a.id} className="rounded-lg border border-border bg-secondary/30 p-4">
