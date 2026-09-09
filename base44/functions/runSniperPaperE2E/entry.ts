@@ -19,6 +19,7 @@ function provenance(s:any) {
     source_mode: s?.source_mode || 'NATIVE',
     source_type: s?.source_type || 'LIVE_PUBLIC_REST',
     endpoint: s?.endpoint || null,
+    source_endpoints: s?.source_endpoints || null,
     fallback_reason: s?.fallback_reason || null,
     source_timestamp_ms: s?.source_timestamp_ms || null,
     data_age_ms: s?.data_age_ms ?? null,
