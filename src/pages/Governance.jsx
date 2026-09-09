@@ -13,10 +13,10 @@ export default function Governance() {
   const [gptHealth, setGptHealth] = useState({ status: "LOADING", checked_at: null, auth_valid: null, quota_state: "UNKNOWN", latency_ms: null, governance_effect: "AI_DEGRADED" });
   const [gptLoading, setGptLoading] = useState(false);
 
-  const loadGptHealth = async () => {
+  const loadGptHealth = async (activeProbe = false) => {
     setGptLoading(true);
     try {
-      const raw = await base44.functions.invoke("gptApiHealthCheck", {});
+      const raw = await base44.functions.invoke("gptApiHealthCheck", { active_probe: activeProbe });
       const res = raw?.data || raw;
       setGptHealth(res || { status: "MONITOR_ERROR", governance_effect: "AI_DEGRADED" });
     } catch (e) {
@@ -77,9 +77,9 @@ export default function Governance() {
               </div>
             </div>
           </div>
-          <button onClick={loadGptHealth} disabled={gptLoading} className="flex items-center gap-2 rounded-md border border-border bg-secondary px-3 py-2 text-xs font-semibold text-foreground disabled:opacity-50">
+          <button onClick={() => loadGptHealth(true)} disabled={gptLoading} className="flex items-center gap-2 rounded-md border border-border bg-secondary px-3 py-2 text-xs font-semibold text-foreground disabled:opacity-50">
             <RefreshCw className={`h-3.5 w-3.5 ${gptLoading ? "animate-spin" : ""}`} />
-            GPT prüfen
+            GPT Deep-Check
           </button>
         </div>
         <div className={`mt-3 rounded-md border px-3 py-2 text-xs ${gptHealth.status === "CONNECTED" ? "border-profit/30 bg-profit/5 text-profit" : "border-warning/30 bg-warning/5 text-warning"}`}>
