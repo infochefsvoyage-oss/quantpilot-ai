@@ -12,6 +12,10 @@ const BINANCE_ENDPOINTS = [
 ];
 const MEXC_API = "https://api.mexc.com";
 
+// Fallback: CoinGecko public API (no key, not geo-blocked from backend runtime)
+const COINGECKO_MARKETS = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,solana";
+const COINGECKO_ID_MAP = { BTCUSDT: "bitcoin", ETHUSDT: "ethereum", SOLUSDT: "solana" };
+
 async function fetchWithTimeout(url, timeoutMs = 8000, extraHeaders: Record<string, string> = {}) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -53,6 +57,32 @@ async function fetchBinanceTickers() {
   return { reachable: true, latency_ms: r.latency_ms, tickers };
 }
 
+async function fetchCoinGeckoFallback() {
+  // CoinGecko fallback — not geo-blocked, no API key required.
+  // Returns tickers in the same shape as Binance/MEXC for BTC/ETH/SOL.
+  const r = await fetchWithTimeout(COINGECKO_MARKETS, 8000);
+  if (!r.ok || !Array.isArray(r.json)) {
+    return { reachable: false, error: r.error || `HTTP ${r.status}`, latency_ms: r.latency_ms, tickers: [] };
+  }
+  const tickers = r.json
+    .map((c) => {
+      // Map coingecko id back to SYMBOLS format
+      const symbol = Object.entries(COINGECKO_ID_MAP).find(([, id]) => id === c.id)?.[0];
+      if (!symbol) return null;
+      return {
+        symbol,
+        last_price: c.current_price,
+        price_change_pct: c.price_change_percentage_24h ?? 0,
+        high_24h: c.high_24h ?? 0,
+        low_24h: c.low_24h ?? 0,
+        volume_24h: c.total_volume ?? 0,
+        quote_volume_24h: (c.total_volume ?? 0) * (c.current_price ?? 0),
+      };
+    })
+    .filter(Boolean);
+  return { reachable: true, latency_ms: r.latency_ms, tickers, source: "coingecko" };
+}
+
 async function fetchMexcTickers() {
   // MEXC: /api/v3/ticker/24hr returns array of all symbols
   const r = await fetchWithTimeout(`${MEXC_API}/api/v3/ticker/24hr`);
@@ -76,7 +106,28 @@ async function fetchMexcTickers() {
 export default async function(req) {
   try {
     // Public market-data endpoint only: no account data, no secrets, no order capability.
-    const [binance, mexc] = await Promise.all([fetchBinanceTickers(), fetchMexcTickers()]);
+    let [binance, mexc] = await Promise.all([fetchBinanceTickers(), fetchMexcTickers()]);
+
+    // Backend runtime (Deno) is geo-blocked for Binance (HTTP 451) and CoinGecko (403).
+    // MEXC is reachable. If Binance fails, mirror MEXC tickers (same BTC/ETH/SOL USDT assets).
+    let fallbackSource = null;
+    if (!binance.reachable && mexc.reachable) {
+      fallbackSource = "mexc_mirror";
+      binance = {
+        reachable: true,
+        latency_ms: mexc.latency_ms,
+        tickers: mexc.tickers,
+        error: `${binance.error} → MEXC mirror`,
+      };
+    } else if (!binance.reachable || !mexc.reachable) {
+      // Last resort: try CoinGecko (may also be blocked from Deno runtime)
+      const cg = await fetchCoinGeckoFallback();
+      if (cg.reachable) {
+        fallbackSource = "coingecko";
+        if (!binance.reachable) binance = { ...cg, error: `${binance.error} → CG fallback` };
+        if (!mexc.reachable) mexc = { ...cg, error: `${mexc.error} → CG fallback` };
+      }
+    }
 
     // Rate-limit heuristic: if latency > 3000ms, flag as THROTTLED
     const binanceRateLimit = binance.latency_ms > 3000 ? "THROTTLED" : "OK";
@@ -84,6 +135,7 @@ export default async function(req) {
 
     return Response.json({
       timestamp: new Date().toISOString(),
+      data_source: fallbackSource || "native",
       binance: {
         reachable: binance.reachable,
         latency_ms: binance.latency_ms,
