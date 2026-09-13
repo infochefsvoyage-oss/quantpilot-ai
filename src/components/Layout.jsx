@@ -3,7 +3,7 @@ import { Link, useLocation, Outlet } from "react-router-dom";
 import {
   LayoutDashboard, Crosshair, Briefcase, ShieldAlert, Lock,
   BookOpen, Plug, FlaskConical, Radio, Settings, Zap,
-  Radar, Shield, TrendingDown, Bot, ScanLine,
+  Radar, Shield, TrendingDown, Bot, ScanLine, CalendarCheck,
 } from "lucide-react";
 import { runtimeStatus } from "@/lib/quantData";
 
@@ -21,6 +21,7 @@ const navItems = [
   { to: "/runner", label: "Runner", icon: Shield },
   { to: "/reverse-short", label: "Reverse-Short", icon: TrendingDown },
   { to: "/ict-scanner", label: "ICT Scanner", icon: ScanLine },
+  { to: "/meilensteinplan", label: "Meilensteinplan", icon: CalendarCheck },
   { to: "/agents", label: "Agenten Desk", icon: Bot },
   { to: "/settings", label: "Einstellungen", icon: Settings },
 ];

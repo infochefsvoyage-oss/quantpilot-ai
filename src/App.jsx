@@ -23,6 +23,7 @@ import RunnerProtection from '@/pages/RunnerProtection';
 import ReverseShort from '@/pages/ReverseShort';
 import Agents from '@/pages/Agents';
 import ICTScanner from '@/pages/ICTScanner';
+import Meilensteinplan from '@/pages/Meilensteinplan';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
@@ -90,6 +91,7 @@ const AuthenticatedApp = () => {
           <Route path="/reverse-short" element={<ReverseShort />} />
           <Route path="/agents" element={<Agents />} />
           <Route path="/ict-scanner" element={<ICTScanner />} />
+          <Route path="/meilensteinplan" element={<Meilensteinplan />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Route>
