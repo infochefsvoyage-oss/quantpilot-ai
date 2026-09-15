@@ -261,6 +261,14 @@ export default function Meilensteinplan() {
           <SystemStatusGrid data={data} gptConnected={gptConnected} marketFresh={marketFresh} />
 
           <div className="mt-4">
+            <Phase3RunnerPanel
+              run={phase3Run}
+              running={phase3Running}
+              onRun={() => runPhase3Sequence({ manual: true })}
+            />
+          </div>
+
+          <div className="mt-4">
             <MilestoneSummary summary={summary} />
           </div>
 
