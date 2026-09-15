@@ -363,7 +363,7 @@ function buildMilestones(gpt: any, market: any, audit: any, githubSyncStatus: st
       tasks: [
         { id: 'target_date', name: 'Go-Live Zieltermin aktualisieren', status: targetStatus === 'OVERDUE' ? 'blocked' : 'pending', detail: targetStatus },
         { id: 'github_sync', name: 'GitHub Sync / Branch-Regel', status: githubSyncStatus === 'OK' ? 'done' : 'blocked', detail: githubSyncStatus },
-        { id: 'all_gates', name: 'Alle G1–G10 Gates PASS', status: audit.go_live_gate_pass_count >= 10 ? 'done' : 'blocked', detail: `${audit.go_live_gate_pass_count}/10 PASS` },
+        { id: 'all_gates', name: 'Alle G1–G10 Gates PASS', status: dynamicGatePassCount >= 10 ? 'done' : 'blocked', detail: `${dynamicGatePassCount}/10 PASS` },
         { id: 'governance_approval', name: 'Governance 2-Step Approval (ULF)', status: 'blocked', detail: 'manual required' },
         { id: 'live_unlock', name: 'Live Execution Global Unlock', status: 'blocked', detail: 'nicht freigegeben' },
       ],
