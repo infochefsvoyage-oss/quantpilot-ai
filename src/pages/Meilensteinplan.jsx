@@ -214,6 +214,14 @@ export default function Meilensteinplan() {
     return () => { mounted = false; clearInterval(id); };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (!cancelled) runPhase3Sequence({ manual: false });
+    }, 1500);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, []);
+
   const phases = data?.phases || FALLBACK_MILESTONES;
   const summary = useMemo(() => buildSummary(phases, data?.summary), [phases, data?.summary]);
   const targetOverdue = data?.target_status === "OVERDUE";
