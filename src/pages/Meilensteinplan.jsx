@@ -130,6 +130,79 @@ export default function Meilensteinplan() {
     }
   };
 
+  const runPhase3Sequence = async ({ manual = false } = {}) => {
+    if (phase3Running) return;
+
+    const lastRun = Number(window.localStorage.getItem(PHASE3_AUTO_RUN_KEY) || 0);
+    const cooldownActive = !manual && lastRun > 0 && Date.now() - lastRun < PHASE3_AUTO_RUN_COOLDOWN_MS;
+    if (cooldownActive) {
+      setPhase3Run((prev) => ({
+        ...prev,
+        status: "COOLDOWN",
+        last_run_at: lastRun ? new Date(lastRun).toISOString() : prev.last_run_at,
+        message: "Phase-3 Auto-Runner wartet auf Cooldown · kein Spam · Live BLOCKED",
+      }));
+      return;
+    }
+
+    setPhase3Running(true);
+    setPhase3Run({
+      status: "RUNNING",
+      mode: "SAFE_FULL_AUTO_COMPLETION",
+      steps: [],
+      last_run_at: new Date().toISOString(),
+      message: "Phase 3 läuft: Safety → Paper → Readiness → Dry Run",
+    });
+
+    const steps = [];
+    for (const step of PHASE3_SEQUENCE) {
+      const started = Date.now();
+      setPhase3Run((prev) => ({
+        ...prev,
+        steps: [...steps, { ...step, status: "RUNNING", latency_ms: 0 }],
+      }));
+
+      try {
+        const resp = await base44.functions.invoke(step.fn, step.payload || {});
+        const result = resp?.data || resp || {};
+        steps.push({
+          ...step,
+          status: "DONE",
+          latency_ms: Date.now() - started,
+          result_status: result.status || result.execution_readiness || result.order_send || "OK",
+          live_execution: result.live_execution || (result.live_execution_blocked ? "BLOCKED" : "BLOCKED"),
+          order_send: result.order_send || "BLOCKED",
+        });
+      } catch (e) {
+        steps.push({
+          ...step,
+          status: "ERROR",
+          latency_ms: Date.now() - started,
+          error: e?.message || "FUNCTION_FAILED",
+          live_execution: "BLOCKED",
+          order_send: "BLOCKED",
+        });
+      }
+
+      setPhase3Run((prev) => ({ ...prev, steps: [...steps] }));
+    }
+
+    const failed = steps.filter((s) => s.status === "ERROR").length;
+    const finishedAt = Date.now();
+    window.localStorage.setItem(PHASE3_AUTO_RUN_KEY, String(finishedAt));
+    setPhase3Run({
+      status: failed ? "COMPLETED_WITH_WARNINGS" : "COMPLETED",
+      mode: "SAFE_FULL_AUTO_COMPLETION",
+      steps,
+      last_run_at: new Date(finishedAt).toISOString(),
+      message: failed
+        ? `${failed} Phase-3 Check(s) mit Fehler · Live bleibt BLOCKED`
+        : "Phase 3 Sequenz abgeschlossen · Live bleibt BLOCKED",
+    });
+    setPhase3Running(false);
+    await load({ silent: true });
+  };
+
   useEffect(() => {
     let mounted = true;
     const safeLoad = async (opts) => {
