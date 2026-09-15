@@ -23,6 +23,15 @@ const PHASE_STYLE = {
   BLOCKED: { text: "text-loss", bg: "bg-loss/10", border: "border-loss/20", badge: "loss", label: "BLOCKIERT" },
 };
 
+const PHASE3_AUTO_RUN_KEY = "quantpilot_phase3_auto_run_at";
+const PHASE3_AUTO_RUN_COOLDOWN_MS = 15 * 60 * 1000;
+const PHASE3_SEQUENCE = [
+  { fn: "orderSendSafetyTest", label: "Order-Send Safety Test", payload: {} },
+  { fn: "paperExecutionEngine", label: "Paper Execution Engine", payload: {} },
+  { fn: "executionReadinessCheck", label: "Execution Readiness Check", payload: {} },
+  { fn: "autoOrderPipeline", label: "Auto-Order Pipeline Dry Run", payload: { test_case: "VALID_SIGNAL" } },
+];
+
 const FALLBACK_MILESTONES = [
   {
     id: "fallback_1",
