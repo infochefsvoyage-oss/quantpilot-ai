@@ -63,12 +63,16 @@ function latestLog(logs: any[], event: string) {
   return (logs || []).find((l: any) => l.event === event) || null;
 }
 
-async function fetchWithTimeout(url: string, timeoutMs = TIMEOUT_MS, headers: Record<string, string> = {}) {
+async function fetchWithTimeout(url: string, timeoutMs = TIMEOUT_MS, headers: Record<string, string> = {}, init: RequestInit = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   const started = Date.now();
   try {
-    const res = await fetch(url, { signal: ctrl.signal, headers: { Accept: 'application/json', ...headers } });
+    const res = await fetch(url, {
+      ...init,
+      signal: ctrl.signal,
+      headers: { Accept: 'application/json', ...headers, ...(init.headers || {}) },
+    });
     const text = await res.text();
     let json: any = null;
     try { json = text ? JSON.parse(text) : null; } catch (_) {}
@@ -124,9 +128,16 @@ async function probeOpenAI(activeProbeRequested: boolean) {
     probe = await fetchWithTimeout(`${OPENAI_BASE}/responses`, TIMEOUT_MS, {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
+    }, {
+      method: 'POST',
+      body: JSON.stringify({
+        model: healthModel,
+        input: 'healthcheck',
+        max_output_tokens: 1,
+      }),
     });
-    monitorMode = 'ACTIVE_RESPONSES_PROBE_REQUESTED_BUT_GET_ONLY_BLOCKED';
-    activeProbePerformed = false;
+    monitorMode = 'ACTIVE_RESPONSES_PROBE';
+    activeProbePerformed = true;
   }
 
   let status = 'API_ERROR';
