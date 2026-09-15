@@ -49,7 +49,10 @@ function pct(done: number, total: number) {
 
 function phaseStatus(tasks: Task[]): PhaseStatus {
   if (tasks.every((t) => t.status === 'done')) return 'DONE';
-  if (tasks.some((t) => t.status === 'blocked')) return 'BLOCKED';
+  // Rauschfrei: einzelne bekannte Fallback-/Manual-Blocker sollen eine Phase
+  // nicht komplett rot einfärben. BLOCKED nur, wenn die Phase vollständig
+  // blockiert ist oder explizit mit status: 'BLOCKED' gesetzt wird.
+  if (tasks.length > 0 && tasks.every((t) => t.status === 'blocked')) return 'BLOCKED';
   return 'IN_PROGRESS';
 }
 
