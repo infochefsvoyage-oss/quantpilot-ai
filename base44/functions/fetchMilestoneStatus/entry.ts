@@ -410,13 +410,15 @@ export default async function(req: Request): Promise<Response> {
 
     const phases = buildMilestones(gpt, market, audit, githubSyncStatus, targetStatus);
     const summary = summarize(phases);
+    const phase4 = phases.find((p) => p.id === 'phase_4');
+    const dynamicGatePassCount = phase4?.tasks.filter((t) => t.status === 'done').length || 0;
 
     const blockers = [
       ...(market.binance_native !== 'ONLINE' ? [{ id: 'binance_native', label: 'Binance Native API', reason: market.binance_native || 'OFFLINE' }] : []),
       ...(targetStatus === 'OVERDUE' ? [{ id: 'target_overdue', label: 'Go-Live Zieltermin', reason: `${GO_LIVE_TARGET} ist überschritten` }] : []),
       { id: 'github_sync', label: 'GitHub Sync', reason: githubSyncStatus },
       ...(audit.oos_n < 82 ? [{ id: 'oos_n', label: 'OOS Validierung', reason: `N=${audit.oos_n}/82, ${audit.oos_remaining_n} verbleibend` }] : []),
-      ...(audit.go_live_gate_pass_count < 10 ? [{ id: 'go_live_gates', label: 'G1–G10', reason: `${audit.go_live_gate_pass_count}/10 PASS` }] : []),
+      ...(dynamicGatePassCount < 10 ? [{ id: 'go_live_gates', label: 'G1–G10', reason: `${dynamicGatePassCount}/10 PASS` }] : []),
       { id: 'live_governance', label: 'Live Execution', reason: 'BLOCKED bis ULF/Governance Approval' },
     ];
 
@@ -434,7 +436,7 @@ export default async function(req: Request): Promise<Response> {
       'GitHub Branch-Regel/Berechtigung im Repository prüfen und Sync manuell bestätigen.',
     ];
 
-    const goLiveReady = summary.blocked === 0 && audit.go_live_gate_pass_count >= 10 && audit.statistical_pass;
+    const goLiveReady = summary.blocked === 0 && dynamicGatePassCount >= 10 && audit.statistical_pass;
 
     const result = {
       timestamp: nowIso(),
@@ -456,7 +458,7 @@ export default async function(req: Request): Promise<Response> {
       gpt_api: gpt,
       market_data: market,
       execution_readiness: audit.execution_readiness,
-      audit_summary: audit,
+      audit_summary: { ...audit, dynamic_go_live_gate_pass_count: dynamicGatePassCount },
       github_sync: {
         status: githubSyncStatus,
         reason: 'Base44 function cannot verify GitHub branch protection; UI/repo sync check required.',
