@@ -106,6 +106,14 @@ export default function Meilensteinplan() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [phase3Running, setPhase3Running] = useState(false);
+  const [phase3Run, setPhase3Run] = useState({
+    status: "READY",
+    mode: "SAFE_FULL_AUTO_COMPLETION",
+    steps: [],
+    last_run_at: null,
+    message: "Phase-3 Auto-Runner bereit · Live Execution bleibt BLOCKED",
+  });
 
   const load = async ({ silent = false } = {}) => {
     if (!silent) setRefreshing(true);
