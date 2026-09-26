@@ -1,0 +1,38 @@
+{
+  "timestamp_utc": "2026-09-26T11:45:03Z",
+  "repository": "infochefsvoyage-oss/quantpilot-ai",
+  "source_commit": "745c3baee0c90954f7e108282a3a95174a1365b1",
+  "endpoint_or_method": "Static source inspection at pinned commit and isolated JavaScript expression check; no endpoint called",
+  "dry_test": true,
+  "http_status": null,
+  "latency_ms": null,
+  "response_summary": {
+    "api_response": "Not obtained; no HTTP invocation",
+    "synthetic_order_card": "Builder statically defines synthetic XAUUSD signal and card with order_send=BLOCKED; no runtime card observed",
+    "deployment_discovery": "No base44.json, function endpoint URL, or deployment URL for evaluateAPlusSetup found in repository tree, README.md, base44/config.jsonc, package.json, or repository homepage. Frontend reads Base44 app parameters from runtime/env.",
+    "test_discovery": "package.json only contains dev/build/lint/lint:fix/typecheck/preview; no dedicated evaluateAPlusSetup dry-test file/script. Existing bridge tests are unrelated.",
+    "local_check": "Isolated JavaScript evaluation of identical chained strict-equality expression returns false for gate=true and card_status=QUALIFIED_MANUAL; no repository function code executed.",
+    "runtime_auto_execution": "Not verified. Source constructs auto_execution=OFF and safety order_send=0; no runtime/env state inspected."
+  },
+  "order_send_blocked": true,
+  "order_send_blocked_basis": "Source-only: orderCardBuilder.ts returns order_send=BLOCKED; entry.ts reports order_send=0. No broker interaction occurred during this assessment; live configuration unverified.",
+  "telegram_notified": false,
+  "telegram_notified_basis": "No endpoint call and no Telegram invocation was made during assessment. This is NOT evidence of safe production dry-test behavior.",
+  "verdict": "E2E_DRY_BLOCKED",
+  "reason": "Endpoint URL unavailable and endpoint invocation prohibited by no-live-Telegram boundary: dry_test=true still executes live candidate notification before synthetic branch and calls real Telegram notifier for A_PLUS_DRY_TEST. Additionally dryTestResult.pass chained === comparison is always false for boolean a_plus and string card_status; cannot obtain a synthetic PASS.",
+  "residual_risk": [
+    "Dry-test flag is not an early isolation gate. If invoked with Telegram credentials, both live-qualified signal and synthetic dry-test messages may be sent to live channel.",
+    "Live scan, broker account/price reads, market intelligence fetch and audit writes run during dry_test=true.",
+    "Response and actual deployment state remain unverified; source-only order blocking is not an end-to-end guarantee."
+  ],
+  "source_references": [
+    "base44/functions/evaluateAPlusSetup/entry.ts:86-175",
+    "base44/shared/orderCardBuilder.ts:113-159",
+    "base44/shared/telegramNotify.ts:75-111",
+    "src/lib/app-params.js",
+    "base44/config.jsonc",
+    "package.json",
+    "README.md"
+  ],
+  "next_safe_step": "Add an early isolated dry-test branch that bypasses live scan, bridge, audit and all outbound Telegram, mock external calls, fix boolean pass expression, add tests, then rerun against an authenticated test-only deployment with explicit operator approval."
+}
