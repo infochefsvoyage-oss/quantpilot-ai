@@ -5,6 +5,7 @@ import { decisionConfig, riskDefaults, formatPrice } from "@/lib/quantData";
 import PanelCard from "@/components/PanelCard";
 import StatusBadge from "@/components/StatusBadge";
 import GateIndicator from "@/components/GateIndicator";
+import APlusOrderCard from "@/components/sniper/APlusOrderCard";
 
 const EMPTY = { id:"none", symbol:"—", exchange:"—", decision:"NO_TRADE", ascan_score:0, rr:0, htf_bias:"NEUTRAL", gate_liquidity_sweep:false, gate_reclaim_rejection:false, gate_volume_confirmation:false, gate_htf_alignment:false, spread_ok:false, funding_ok:false, data_fresh:false, stop_loss_present:false };
 
@@ -90,6 +91,10 @@ export default function SniperMode() {
           {canPaper && <div className="mt-3 flex gap-2 rounded-md bg-profit/5 px-3 py-2"><ShieldCheck className="h-4 w-4 shrink-0 text-profit"/><p className="text-xs text-profit">A+ im angezeigten Scan bestätigt. Der Server muss das Setup beim Klick nochmals unabhängig bestätigen.</p></div>}
         </PanelCard>
       </div>
+    </div>
+
+    <div className="mt-4">
+      <APlusOrderCard symbol={selectedSignal?.symbol && selectedSignal.symbol !== "—" ? selectedSignal.symbol : null} />
     </div>
   </div>;
 }
